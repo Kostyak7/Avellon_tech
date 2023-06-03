@@ -89,7 +89,7 @@ class App:
             nbm_sqr = 16
             step = time_base * nbm_sqr / data_points
 
-            steps = [None, None, None, None, None, None ]
+            steps = [None] * 6
             for i in range(data_points):
                 steps.append((i-1) * step)
             dataf["Steps"] = steps

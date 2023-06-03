@@ -1,3 +1,8 @@
 **/venv/
 **/__pycache__/
 **/.idea/
+
+**/r_data/
+**/w_data/
+*.html
+*.csv
