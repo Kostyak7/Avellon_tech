@@ -283,7 +283,7 @@ class OscilloscopeGraphWindowWidget(AbstractGraphWindowWidget):
 
         self.all_widgets_to_layout()
 
-    def replot_graph(self):
+    def replot_graph(self) -> None:
         self.graph_widget.recreate(self.data_frames)
         self.all_widgets_to_layout()
 
@@ -296,7 +296,7 @@ class MyCheckBox(QCheckBox):
         self.setChecked(True)
         self.stateChanged.connect(self.click_checkbox_action)
 
-    def recreate(self, filename_: str):
+    def recreate(self, filename_: str) -> None:
         self.setVisible(True)
         self.setChecked(True)
         self.filename = filename_
@@ -337,7 +337,7 @@ class WindRozeGraphWindowWidget(AbstractGraphWindowWidget):
         self.slider.setPageStep(1)
         self.slider.setTickPosition(QSlider.TicksBelow)
         self.slider.setMinimumWidth(int(self.main_window.size().width() / 4 * 3))
-        self.slider.valueChanged.connect(self.plot_graph_action)
+        self.slider.valueChanged.connect(self.replot_for_new_data)
 
     def read_csv_into_data_frame(self) -> None:
         self.data_frames = []
@@ -374,16 +374,19 @@ class WindRozeGraphWindowWidget(AbstractGraphWindowWidget):
                 QMessageBox.warning(self, cf.FILE_NOT_EXIST_WARNING_TITLE,
                                     f"{filename} - не существует или не является файлом!", QMessageBox.Ok)
 
-    def plot_graph_action(self) -> None:
+    def replot_for_new_data(self) -> None:
         self.plot_widget.canvas.ax.clear()
         self.plot_widget.canvas.axes_init()
 
-        self.read_csv_into_data_frame()
         self.slider.setRange(1, len(self.data_frames))
+        self.plot_widget.canvas.ax.plot(self.theta, self.data_frames[self.slider.value() - 1])
+        self.plot_widget.canvas.draw()
+
+    def plot_graph_action(self) -> None:
+        self.read_csv_into_data_frame()
         self.slider.setValue(1)
         if len(self.data_frames) == 0:
             return
-        self.plot_widget.canvas.ax.plot(self.theta, self.data_frames[self.slider.value() - 1])
-        self.plot_widget.canvas.draw()
+        self.replot_for_new_data()
 
 
