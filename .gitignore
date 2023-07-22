@@ -2,6 +2,8 @@
 **/__pycache__/
 **/.idea/
 
+**/data/
+**/save_data/
 **/r_data/
 **/w_data/
 *.html
