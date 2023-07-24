@@ -1,5 +1,8 @@
 @echo on
 
+IF not EXIST "save_data" (
+	goto init
+)
 
 IF not "%1"=="" (
 	goto %~1 
