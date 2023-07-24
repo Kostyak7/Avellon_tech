@@ -15,6 +15,7 @@ class MyDataFrame:
         self.active = True
         self.data = pd.read_csv(self.filename, header=None)
         is_exception = False
+
         try:
             self.header = self.header_init()
         except MyWarning as mw:
@@ -28,19 +29,6 @@ class MyDataFrame:
             self.active = False
             self.data = self.header = None
             return
-        # try:
-        #     self.time_base = int(self.data.iloc[0][0][10:-2]) * (10 ** (-6))
-        #     self.sampling_rate = float(self.data.iloc[1][0][14:-5])
-        #     self.amplitude = float(self.data.iloc[2][0][10:-1])
-        #     self.amplitude_resolution = float(self.data.iloc[3][0][21:-2]) * (10 ** (-3))
-        #     self.data_uint = str(self.data.iloc[4][0][10:])
-        #     self.data_points = int(self.data.iloc[5][0][12:])
-        # except:
-        #     QMessageBox.warning(widget_owner_, "Incorrect file content",
-        #                         f"Выбранный файл: - {filename_} - имеет неправильное наполнение в хедере!", QMessageBox.Ok)
-        #     self.active = False
-        #     self.data = None
-        #     return
         self.data_init()
 
     def is_correct_read(self) -> bool:
@@ -121,7 +109,6 @@ class OscilloscopeGraphWidget(AbstractGraphWidget):
 
 
 # MATPLOTLIB GRAPH
-# Matplotlib canvas class to create figure
 class MplCanvas(FigureCanvasQTAgg):
     def __init__(self):
         self.fig = Figure()
@@ -140,7 +127,6 @@ class MplCanvas(FigureCanvasQTAgg):
         self.ax.set_xticklabels(angle_and_name_list)
 
 
-# Matplotlib widget
 class MplWidget(QWidget):
     def __init__(self, parent=None):
         QWidget.__init__(self, parent)   # Inherit from QWidget
