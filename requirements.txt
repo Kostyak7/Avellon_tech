@@ -2,4 +2,3 @@ pyside6
 pandas
 pyqtgraph
 matplotlib
-windrose

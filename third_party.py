@@ -44,6 +44,22 @@ class StrFormatting(AbstractFormatting):
         return str(content_[:self.unit_index])
 
 
+def get_num_file_by_default(base_name_: str, sensor_amount_: int) -> list:
+    measurement_num = -1
+    if base_name_[-5].isalpha():
+        measurement_num = ord(base_name_[-5].lower()) - ord('a') + 10
+    elif base_name_[-5].isdigit():
+        measurement_num = int(base_name_[-5])
+    else:
+        return [-1, -1]
+    sensor_num = -1
+    if base_name_[-11].isalpha() and ord(base_name_[-11].lower()) - ord('a') < sensor_amount_:
+        sensor_num = ord(base_name_[-11].lower()) - ord('a')
+    else:
+        return [-1, -1]
+    return [measurement_num, sensor_num]
+
+
 class AbstractFunctor:
     def action(self, state_: int): ...
 

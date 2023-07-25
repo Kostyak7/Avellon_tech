@@ -3,7 +3,9 @@ import pathlib
 import numpy as np
 import pandas as pd
 from time import gmtime, strftime
-from graph_widget import MyDataFrame, OscilloscopeGraphWidget, MplWidget
+from graph_widget import XYDataFrame, OscilloscopeGraphWidget, AmplitudeTimeGraphWidget,\
+    FrequencyResponseGraphWidget, MplWidget, Max1SectionDataFrame, Max1SensorDataFrame, \
+    select_files,PipeRectangle
 from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, \
     QVBoxLayout, QHBoxLayout, QPushButton, QWidget, QMessageBox, \
     QTableWidget, QTableWidgetItem, QLabel, QSlider
@@ -11,7 +13,8 @@ from PySide6.QtGui import QScreen, QIcon, QPixmap
 from PySide6.QtCore import Qt, QUrl, QPoint, QSize, QRect
 from PySide6.QtWidgets import QAbstractItemView
 from PySide6.QtWebEngineWidgets import QWebEngineView
-from third_party import AbstractFunctor, basename_decorator, AbstractCheckBoxList
+from third_party import AbstractFunctor, basename_decorator, AbstractCheckBoxList, \
+    get_num_file_by_default
 import config as cf
 
 
@@ -37,28 +40,31 @@ class MainMenuWidget(QWidget):
         self.resize(pixmap.width(), pixmap.height())
 
         self.button_list = list()
+        self.create_in_button_list("Построить осциллограммы", self.plot_oscilloscope_action)
+        self.create_in_button_list("Построить частотную характеристику", self.plot_frequency_resp_action, True)
+        self.create_in_button_list("Построить зависимости амплитуды во времени", self.plot_amplitude_time_action, True)
+        self.create_in_button_list("Построить розу ветров", self.plot_wind_rose_action)
 
-        button = QPushButton("Построить осциллограммы")
-        button.setShortcut("Ctrl+" + str(len(self.button_list) + 1))
-        button.clicked.connect(self.plot_oscilloscope_action)
-        self.button_list.append(button)
-
-        button = QPushButton("Построить частотную характеристику")
-        button.setShortcut("Ctrl+" + str(len(self.button_list) + 1))
-        button.clicked.connect(self.quit_app_action)
-        self.button_list.append(button)
-
-        button = QPushButton("Построить розу ветров")
-        button.setShortcut("Ctrl+" + str(len(self.button_list) + 1))
-        button.clicked.connect(self.plot_wind_rose_action)
-        self.button_list.append(button)
-
-        button = QPushButton("Выход")
-        button.setShortcut("Shift+Esc")
-        button.clicked.connect(self.quit_app_action)
-        self.button_list.append(button)
+        self.create_in_button_list("Выход", self.quit_app_action, shortcut_="Shift+Esc")
 
         self.all_widgets_to_layout()
+
+    def create_in_button_list(self, text_: str, action_, is_word_wrap_: bool = False,
+                              shortcut_: str = cf.SEQUENCE_NUMBER_SHORTCUT_MODE) -> None:
+        button = QPushButton(text_)
+        if is_word_wrap_:
+            label = QLabel(text_, button)
+            button.setText('')
+            label.setWordWrap(True)
+            layout = QHBoxLayout(button)
+            layout.addWidget(label, 0, Qt.AlignCenter)
+        if shortcut_ != cf.NO_SHORTCUT_MODE:
+            if shortcut_ == cf.SEQUENCE_NUMBER_SHORTCUT_MODE:
+                button.setShortcut("Ctrl+" + str(len(self.button_list) + 1))
+            else:
+                button.setShortcut(shortcut_)
+        button.clicked.connect(action_)
+        self.button_list.append(button)
 
     def all_widgets_to_layout(self) -> None:
         core_layout = QHBoxLayout()
@@ -69,9 +75,7 @@ class MainMenuWidget(QWidget):
 
         button_layout = QVBoxLayout()
         for button in self.button_list:
-            button.setMaximumSize(
-                QSize(int(self.main_window.size().width() / 4), int(self.main_window.size().height() / 10)))
-            button.setMinimumSize(
+            button.setFixedSize(
                 QSize(int(self.main_window.size().width() / 4), int(self.main_window.size().height() / 10)))
             button_layout.addWidget(button, Qt.AlignCenter)
 
@@ -96,40 +100,15 @@ class MainMenuWidget(QWidget):
     def plot_oscilloscope_action(self) -> None:
         self.main_window.setCentralWidget(OscilloscopeGraphWindowWidget(self.main_window))
 
+    def plot_frequency_resp_action(self) -> None:
+        self.main_window.setCentralWidget(FrequencyResponseGraphWindowWidget(self.main_window))
+        pass
+
+    def plot_amplitude_time_action(self) -> None:
+        self.main_window.setCentralWidget(AmplitudeTimeGraphWindowWidget(self.main_window))
+
     def plot_wind_rose_action(self) -> None:
         self.main_window.setCentralWidget(WindRoseGraphWindowWidget(self.main_window))
-
-
-def select_files(self_widget_: QWidget, filter_str_: str) -> list:
-    file_dialog = QFileDialog(self_widget_)
-    file_dialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
-    file_dialog.setNameFilter(filter_str_)
-    file_dialog.setDirectory(str(pathlib.Path().resolve() / cf.DEFAULT_FOLDER_NAME_FOR_SELECT))
-    if not file_dialog.exec():
-        return list()
-    filenames = file_dialog.selectedFiles()
-    print(filenames)
-    for i in range(len(filenames)):
-        if filenames[i].split('.')[-1].lower() not in cf.ALLOWED_FILE_LOAD_FORMATS:
-            QMessageBox.warning(self_widget_, "Wrong type",
-                                f"Выбранный файл: - {filenames[i]} - имеет неправильный формат!", QMessageBox.Ok)
-    return filenames
-
-
-def get_num_file_by_default(base_name_: str) -> list:
-    measurement_num = 0
-    if base_name_[-5].isalpha():
-        measurement_num = ord(base_name_[-5].lower()) - ord('a') + 10
-    elif base_name_[-5].isdigit():
-        measurement_num = int(base_name_[-5])
-    else:
-        return [-1, -1]
-    sensor_num = 0
-    if base_name_[-11].isalpha() and ord(base_name_[-11].lower()) - ord('a') < cf.SENSOR_AMOUNT:
-        sensor_num = ord(base_name_[-11].lower()) - ord('a')
-    else:
-        return [-1, -1]
-    return [measurement_num, sensor_num]
 
 
 class AbstractGraphWindowWidget(QWidget):
@@ -153,9 +132,6 @@ class AbstractGraphWindowWidget(QWidget):
         self.select_action = file_menu.addAction("&Выбрать Файл", "Ctrl+o")
         self.select_action.triggered.connect(self.select_csv_files_action)
 
-        old_version_action = file_menu.addAction("&Старая Версия", "Ctrl+p+1")
-        old_version_action.triggered.connect(self.open_old_version_action)
-
         self.download_action = file_menu.addAction("&Сохранить", "Ctrl+s")
         self.download_action.setEnabled(False)
         self.download_action.triggered.connect(self.save_data_by_default_action)
@@ -167,7 +143,7 @@ class AbstractGraphWindowWidget(QWidget):
         self.data_frames = []
         self.filename_list = []
         self.widget_list = []
-        self.graph_widget = None
+        self.plot_widget = None
         self.webV = QWebEngineView()
 
     def all_widgets_to_layout(self) -> None:
@@ -205,37 +181,44 @@ class AbstractGraphWindowWidget(QWidget):
     def save_data_for_path(self, path_: str, type_: str) -> None: ...
     def read_csv_into_data_frame(self) -> None: ...
 
-    def open_old_version_action(self) -> None:
-        self.webV.load(QUrl.fromLocalFile(
-            pathlib.Path().resolve() / 'resource/oscilloscope_data.html'))
-        self.select_action.setEnabled(False)
-        self.plot_action.setEnabled(False)
-        self.download_action.setEnabled(False)
-        self.download_as_action.setEnabled(False)
-        core_layout = QHBoxLayout()
-        core_layout.addWidget(self.webV)
-        self.setLayout(core_layout)
+
+class CheckBoxHideFunctor(AbstractFunctor):
+    def __init__(self, name_: str, graph_window_widget_: AbstractGraphWindowWidget):
+        self.name = name_
+        self.graph_window_widget = graph_window_widget_
+
+    def action(self, state_: int) -> None:
+        for dataframe in self.graph_window_widget.data_frames:
+            if dataframe.name == self.name:
+                dataframe.active = state_ != 0
+        self.graph_window_widget.replot_for_new_data()
+
+
+class HideCheckBoxesList(AbstractCheckBoxList):
+    def __init__(self, names_list_: list, graph_window_widget_: AbstractGraphWindowWidget):
+        super().__init__(CheckBoxHideFunctor)
+        self.set_data(names_list_, graph_window_widget_)
 
 
 class OscilloscopeGraphWindowWidget(AbstractGraphWindowWidget):
     def __init__(self, main_window_: MainWindow):
         super().__init__(main_window_)
         self.table_widget = QTableWidget(self)
-        self.checkbox_list_widget = OscilloscopeGraphCheckBoxesList(list(), self)
-        self.graph_widget = OscilloscopeGraphWidget(list())
+        self.checkbox_list_widget = HideCheckBoxesList(list(), self)
+        self.plot_widget = OscilloscopeGraphWidget(list())
 
     def help_window_action(self) -> None:
         QMessageBox.information(self, "Help info", "Какая-то справачная информация", QMessageBox.Ok)
 
     def save_data_for_path(self, path_: str, type_: str) -> None:
-        if self.graph_widget is not None:
-            QScreen.grabWindow(self.main_window.app.primaryScreen(), self.graph_widget.winId()).save(path_, type_)
+        if self.plot_widget is not None:
+            QScreen.grabWindow(self.main_window.app.primaryScreen(), self.plot_widget.winId()).save(path_, type_)
 
     def read_csv_into_data_frame(self) -> None:
         self.data_frames.clear()
         for filename in self.filename_list:
             if os.path.exists(filename) and os.path.isfile(filename):
-                self.data_frames.append(MyDataFrame(filename, self))
+                self.data_frames.append(XYDataFrame(filename, self))
             else:
                 QMessageBox.warning(self, cf.FILE_NOT_EXIST_WARNING_TITLE,
                                     f"{filename} - не существует или не является файлом!", QMessageBox.Ok)
@@ -250,7 +233,7 @@ class OscilloscopeGraphWindowWidget(AbstractGraphWindowWidget):
         self.table_widget.horizontalHeader() \
             .setStyleSheet("QHeaderView::section {background-color: rgb(128, 255, 192);}")
         for i in range(len(data_frames)):
-            lTWI = QTableWidgetItem(os.path.basename(data_frames[i].filename))
+            lTWI = QTableWidgetItem(data_frames[i].name)
             rTWI = QTableWidgetItem(str(data_frames[i].data['y'].max()))
             lTWI.setTextAlignment(Qt.AlignRight)
             rTWI.setTextAlignment(Qt.AlignRight)
@@ -266,7 +249,7 @@ class OscilloscopeGraphWindowWidget(AbstractGraphWindowWidget):
         table_checkbox_layout.addWidget(self.checkbox_list_widget)
 
         plot_layout = QHBoxLayout()
-        plot_layout.addWidget(self.graph_widget)
+        plot_layout.addWidget(self.plot_widget)
 
         core_layout = QVBoxLayout()
         core_layout.addLayout(table_checkbox_layout)
@@ -280,45 +263,28 @@ class OscilloscopeGraphWindowWidget(AbstractGraphWindowWidget):
             return
         self.set_table(self.data_frames)
 
-        self.graph_widget.recreate(self.data_frames)
+        self.plot_widget.recreate(self.data_frames)
 
         self.download_action.setEnabled(True)
         self.download_as_action.setEnabled(True)
 
-        self.checkbox_list_widget.set_data(self.filename_list, self)
+        name_list = []
+        for dataframe in self.data_frames:
+            name_list.append(dataframe.name)
+        self.checkbox_list_widget.set_data(name_list, self)
 
         self.all_widgets_to_layout()
 
     def replot_for_new_data(self) -> None:
-        self.graph_widget.recreate(self.data_frames)
+        self.plot_widget.recreate(self.data_frames)
         self.all_widgets_to_layout()
-
-
-class CheckBoxOscilloscopeGraphFunctor(AbstractFunctor):
-    def __init__(self, filename_: str, graph_window_widget_: OscilloscopeGraphWindowWidget):
-        self.filename = filename_
-        self.graph_window_widget = graph_window_widget_
-
-    def action(self, state_: int) -> None:
-        for dataframe in self.graph_window_widget.data_frames:
-            if dataframe.filename == self.filename:
-                dataframe.active = state_ != 0
-        self.graph_window_widget.replot_for_new_data()
-
-
-class OscilloscopeGraphCheckBoxesList(AbstractCheckBoxList):
-    def __init__(self, names_list_: list, graph_window_widget_: OscilloscopeGraphWindowWidget):
-        super().__init__(CheckBoxOscilloscopeGraphFunctor, basename_decorator)
-        self.set_data(names_list_, graph_window_widget_)
 
 
 class WindRoseGraphWindowWidget(AbstractGraphWindowWidget):
     def __init__(self, main_window_: MainWindow):
         super().__init__(main_window_)
         self.plot_widget = MplWidget()
-        self.relative_data_frames = []
         self.is_relative = False
-        self.theta = np.array([0, 90, 180, 270, 360]) / 180 * np.pi
 
         self.checkbox_list_widget = WindRoseCheckBoxesList(['Абсолютные значения'], self)
 
@@ -344,73 +310,28 @@ class WindRoseGraphWindowWidget(AbstractGraphWindowWidget):
 
     def read_csv_into_data_frame(self) -> None:
         self.data_frames.clear()
-        self.relative_data_frames.clear()
-        for filename in self.filename_list:
-            if os.path.exists(filename) and os.path.isfile(filename):
-                tmp_value = MyDataFrame(filename, self).data['y'].max()
-                base_name = os.path.basename(filename)
-                measurement_num, sensor_num = get_num_file_by_default(base_name)
-                if measurement_num == -1 or sensor_num == -1:
-                    QMessageBox.warning(self, cf.WRONG_FILENAME_WARNING_TITLE,
-                                        f"{filename} - имеет не соответстующее требованиям название!", QMessageBox.Ok)
-                    self.data_frames.clear()
-                    return
-                for i in range(max(0, 1 + measurement_num - len(self.data_frames))):
-                    self.data_frames.append(np.array([None] * (cf.SENSOR_AMOUNT + 1)))
-                self.data_frames[measurement_num][sensor_num] = tmp_value
-                if sensor_num == 0:
-                    self.data_frames[measurement_num][-1] = tmp_value
-            else:
-                QMessageBox.warning(self, cf.FILE_NOT_EXIST_WARNING_TITLE,
-                                    f"{filename} - не существует или не является файлом!", QMessageBox.Ok)
-                self.data_frames.clear()
-                return
-        self.compute_dataframes_list()
-
-    def compute_dataframes_list(self) -> None:
-        tmp_i = 0
-        maxs = [-1] * cf.SENSOR_AMOUNT
-        while tmp_i < len(self.data_frames):
-            c = 0
-            for i in range(cf.SENSOR_AMOUNT):
-                if self.data_frames[tmp_i][i] is None:
-                    self.data_frames[tmp_i][i] = 0
-                    if i == 0:
-                        self.data_frames[tmp_i][-1] = 0
-                    c += 1
-                elif self.data_frames[tmp_i][i] > maxs[i]:
-                    maxs[i] = self.data_frames[tmp_i][i]
-            if c == cf.SENSOR_AMOUNT:
-                self.data_frames.pop(tmp_i)
-            else:
-                tmp_i += 1
-        for tmp_i in range(len(self.data_frames)):
-            self.relative_data_frames.append(np.array([0.] * (cf.SENSOR_AMOUNT + 1)))
-            for i in range(cf.SENSOR_AMOUNT):
-                self.relative_data_frames[tmp_i][i] = self.data_frames[tmp_i][i] / maxs[i]
-                if i == 0:
-                    self.relative_data_frames[tmp_i][-1] = self.data_frames[tmp_i][i] / maxs[i]
+        section_dict = {1: self.filename_list}
+        # determine sections list ...
+        for section_num in section_dict.keys():
+            self.data_frames.append(Max1SectionDataFrame("sensor=" + str(section_num),
+                                                         section_dict[section_num], self))
 
     def replot_for_new_data(self) -> None:
-        self.plot_widget.canvas.ax.clear()
-        self.plot_widget.canvas.axes_init()
-        self.slider.setRange(1, len(self.data_frames))
-        if len(self.data_frames) == 0:
+        self.plot_widget.clear()
+        if len(self.data_frames) < 1:
             return
-        print("RelDATA", len(self.relative_data_frames), self.relative_data_frames)
-        print("DATA", len(self.data_frames), self.data_frames)
-        if self.is_relative:
-            self.plot_widget.canvas.ax.plot(self.theta, self.relative_data_frames[self.slider.value() - 1])
-        else:
-            self.plot_widget.canvas.ax.plot(self.theta, self.data_frames[self.slider.value() - 1])
-        self.plot_widget.canvas.draw()
+        self.slider.setRange(1, len(self.data_frames[0].data))
+        self.plot_widget.set_data(self.data_frames, self.slider.value() - 1, self.is_relative)
 
     def plot_graph_action(self) -> None:
         self.read_csv_into_data_frame()
-        self.slider.setValue(1)
+        if self.slider.value() != 1:
+            self.slider.setValue(1)
+        else:
+            self.replot_for_new_data()
 
 
-class CheckBoxWindRoseFunctor(AbstractFunctor):
+class CheckBoxAbsoluteValueWindRoseFunctor(AbstractFunctor):
     def __init__(self, name_: str, graph_window_widget_: WindRoseGraphWindowWidget):
         self.name = name_
         self.graph_window_widget = graph_window_widget_
@@ -422,5 +343,107 @@ class CheckBoxWindRoseFunctor(AbstractFunctor):
 
 class WindRoseCheckBoxesList(AbstractCheckBoxList):
     def __init__(self, names_list_: list, graph_window_widget_: WindRoseGraphWindowWidget):
-        super().__init__(CheckBoxWindRoseFunctor)
+        super().__init__(CheckBoxAbsoluteValueWindRoseFunctor)
         self.set_data(names_list_, graph_window_widget_)
+
+
+class FrequencyResponseGraphWindowWidget(AbstractGraphWindowWidget):
+    def __init__(self, main_window_: MainWindow):
+        super().__init__(main_window_)
+        self.plot_widget = FrequencyResponseGraphWidget(list(), self)
+        self.plot_widget.setGeometry(0, 0, self.main_window.size().width(), self.main_window.size().height() * 0.7)
+        self.sensor_name_list = ['1', '1', '3', '3']
+
+        self.all_widgets_to_layout()
+
+    def paintEvent(self, event_) -> None:
+        pipe_widget = PipeRectangle(cf.PIPE_RECTANGLE_POSITION, self.sensor_name_list, self)
+        pipe_widget.add_crack_line(cf.UPPER_SIDE, 25, 0.3)
+        pipe_widget.add_crack_line(cf.BOTTOM_SIDE, 25, 0.6)
+
+    def all_widgets_to_layout(self) -> None:
+        core_layout = QVBoxLayout()
+        # core_layout.addWidget(self.plot_widget)
+        self.setLayout(core_layout)
+        self.update()
+
+    def read_csv_into_data_frame(self) -> None:
+        self.data_frames.clear()
+        self.data_frames.append([])
+
+    def plot_graph_action(self) -> None:
+        self.read_csv_into_data_frame()
+        if len(self.data_frames) < 1:
+            return
+
+        self.download_action.setEnabled(True)
+        self.download_as_action.setEnabled(True)
+
+        self.replot_for_new_data()
+
+    def replot_for_new_data(self) -> None:
+        self.plot_widget.recreate(self.data_frames)
+        self.all_widgets_to_layout()
+
+
+class CheckBoxHideFrequencyResponseGraphFunctor(AbstractFunctor):
+    def __init__(self, name_: str, graph_window_widget_: FrequencyResponseGraphWindowWidget):
+        self.name = name_
+        self.graph_window_widget = graph_window_widget_
+
+    def action(self, state_: int) -> None:
+        for dataframe in self.graph_window_widget.data_frames:
+            if dataframe.name == self.name:
+                dataframe.active = state_ != 0
+        self.graph_window_widget.replot_for_new_data()
+
+
+class FrequencyResponseGraphCheckBoxesList(AbstractCheckBoxList):
+    def __init__(self, names_list_: list, graph_window_widget_: FrequencyResponseGraphWindowWidget):
+        super().__init__(CheckBoxHideFrequencyResponseGraphFunctor)
+        self.set_data(names_list_, graph_window_widget_)
+
+
+class AmplitudeTimeGraphWindowWidget(AbstractGraphWindowWidget):
+    def __init__(self, main_window_: MainWindow):
+        super().__init__(main_window_)
+        self.plot_widget = AmplitudeTimeGraphWidget(list())
+        self.relative_data_frames = []
+        self.checkbox_list_widget = HideCheckBoxesList(list(), self)
+
+    def read_csv_into_data_frame(self) -> None:
+        self.data_frames.clear()
+        sensor_dict = dict()
+        for filename in self.filename_list:
+            measurement_num, sensor_num = get_num_file_by_default(filename, cf.SENSOR_AMOUNT)
+            if sensor_num not in sensor_dict:
+                sensor_dict[sensor_num] = []
+            sensor_dict[sensor_num].append(filename)
+        for sensor_num in sensor_dict.keys():
+            self.data_frames.append(Max1SensorDataFrame("sensor=" + str(sensor_num),
+                                                        sensor_dict[sensor_num], self))
+
+    def all_widgets_to_layout(self) -> None:
+        core_layout = QVBoxLayout()
+        core_layout.addWidget(self.plot_widget)
+        core_layout.addWidget(self.checkbox_list_widget)
+        self.setLayout(core_layout)
+
+    def plot_graph_action(self) -> None:
+        self.read_csv_into_data_frame()
+        if len(self.data_frames) < 1:
+            return
+
+        self.download_action.setEnabled(True)
+        self.download_as_action.setEnabled(True)
+
+        name_list = []
+        for dataframe in self.data_frames:
+            name_list.append(dataframe.name)
+        self.checkbox_list_widget.set_data(name_list, self)
+
+        self.replot_for_new_data()
+
+    def replot_for_new_data(self) -> None:
+        self.plot_widget.recreate(self.data_frames)
+        self.all_widgets_to_layout()

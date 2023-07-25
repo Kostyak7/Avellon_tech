@@ -1,4 +1,4 @@
-from PySide6.QtCore import QSize
+from PySide6.QtCore import QSize, QPoint
 from third_party import IntFormatting, FloatFormatting, StrFormatting
 
 MAIN_WINDOW_TITLE = "Avellon tech"
@@ -8,6 +8,9 @@ ICON_WINDOW_PATH = "resource/img/favicon.ico"
 MAIN_MENU_LOGO_PATH = "resource/img/logo.png"
 
 DEFAULT_BUTTON_SIZE = QSize(200, 50)
+SEQUENCE_NUMBER_SHORTCUT_MODE = "SEQNUM"
+NO_SHORTCUT_MODE = "NO"
+
 
 SENSOR_AMOUNT = 4
 
@@ -22,6 +25,22 @@ TYPES_OF_SAVING_FILE = ['png', 'jpg', 'jpeg']
 DEFAULT_FORMAT_OF_FILENAME = "%Y_%m_%d_%H_%M_%S"
 TMP_FOR_WORK_FILENAME = "WORK_VERSION.csv"
 
+PIPE_RECTANGLE_POSITION = QPoint(400, 550)
+SOLID_PIPE_SIZE = QSize(500, 100)
+PIPE_LENGTH_IN_METERS = 1
+DASH_PIPE_SIZE = QSize(SOLID_PIPE_SIZE.width(), int(SOLID_PIPE_SIZE.height() / 2))
+RELATIVE_DASH_PIPE_POSITION = QPoint(0, int(SOLID_PIPE_SIZE.height() / 4))
+SOLID_PIPE_LINE_WIDTH = 3
+DASH_PIPE_LINE_WIDTH = 1
+CRACK_LINE_FOR_PIPE_WIDTH = 2
+CRACK_PIPE_FONT_SIZE = 16
+SENSOR_PIPE_FONT_SIZE = 24
+
+UPPER_SIDE = 'upper'
+BOTTOM_SIDE = 'bottom'
+
+PIPE_CRACK_DEPTH_UNIT = "мм"
+PIPE_CRACK_POSITION_UNIT = "м"
 
 CSV_FILE_HEADER_SIZE = 6
 CSV_FILE_HEADER_CONTENT = {
@@ -33,8 +52,8 @@ CSV_FILE_HEADER_CONTENT = {
     "Data points": IntFormatting(''),
 }
 
-COLOR_NAMES = ['red', 'blue', 'green', 'orange', 'pink', 'burlywood',
-               'chartreuse', 'crimson', 'darkblue', 'darkcyan', 'darkgoldenrod', 'darkgreen',
+COLOR_NAMES = ['red', 'blue', 'green', 'orange', 'burlywood',
+               'darkcyan', 'darkgoldenrod', 'darkgreen', 'pink',
                'darkgrey', 'darkkhaki', 'darkmagenta', 'darkolivegreen', 'darkorange',
                'darksalmon', 'darkseagreen', 'darkslateblue', 'darkturquoise', 'darkviolet',
                'deeppink', 'deepskyblue', 'dodgerblue', 'firebrick', 'forestgreen', 'fuchsia',
@@ -43,11 +62,12 @@ COLOR_NAMES = ['red', 'blue', 'green', 'orange', 'pink', 'burlywood',
                'lightsteelblue', 'lime', 'limegreen', 'magenta', 'maroon', 'mediumvioletred',
                'midnightblue', 'olive', 'orchid', 'palegoldenrod', 'plum',
                'purple', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen',
-               'skyblue', 'slateblue', 'springgreen', 'steelblue', 'thistle', 'violet']
+               'skyblue', 'slateblue', 'springgreen', 'steelblue', 'thistle', 'violet', 'black']
 
 
 # WARNING TITLES
 FILE_NOT_EXIST_WARNING_TITLE = "File not exist"
+WRONG_TYPE_WARNING_TITLE = "Wrong type"
 WRONG_FILENAME_WARNING_TITLE = "Wrong filename"
 INCORRECT_FILE_CONTENT_WARNING_TITLE = "Incorrect file content"
 UNKNOWN_WARNING_TITLE = "Unknown warning"
