@@ -5,11 +5,11 @@ import pandas as pd
 from time import gmtime, strftime
 from graph_widget import XYDataFrame, OscilloscopeGraphWidget, AmplitudeTimeGraphWidget,\
     FrequencyResponseGraphWidget, MplWidget, Max1SectionDataFrame, Max1SensorDataFrame, \
-    select_files,PipeRectangle
+    select_files, PipeRectangle, PipePainter, PipeCrack
 from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, \
-    QVBoxLayout, QHBoxLayout, QPushButton, QWidget, QMessageBox, \
-    QTableWidget, QTableWidgetItem, QLabel, QSlider
-from PySide6.QtGui import QScreen, QIcon, QPixmap
+    QVBoxLayout, QHBoxLayout, QPushButton, QWidget, QMessageBox, QFormLayout,\
+    QTableWidget, QTableWidgetItem, QLabel, QSlider, QDialog, QLineEdit, QComboBox
+from PySide6.QtGui import QScreen, QIcon, QPixmap, QIntValidator, QDoubleValidator
 from PySide6.QtCore import Qt, QUrl, QPoint, QSize, QRect
 from PySide6.QtWidgets import QAbstractItemView
 from PySide6.QtWebEngineWidgets import QWebEngineView
@@ -347,29 +347,201 @@ class WindRoseCheckBoxesList(AbstractCheckBoxList):
         self.set_data(names_list_, graph_window_widget_)
 
 
+class ChangerPipeCrack(PipeCrack, QWidget):
+    def __init__(self, num_: int, list_owner_, side_: str = cf.UPPER_SIDE, depth_: int = 0, position_m_: float = 0):
+        PipeCrack.__init__(self, side_, depth_, position_m_)
+        QWidget.__init__(self)
+
+        self.num = num_
+        self.list_owner = list_owner_
+
+        self.side_editor = QComboBox()
+        self.depth_editor = QLineEdit()
+        self.position_editor = QLineEdit()
+        self.delete_button = QPushButton("X")
+
+        self.__editors_init()
+        self.__set_values_to_editors()
+        self.setVisible(self.num != -1)
+
+    def __eq__(self, other_) -> bool:
+        return self.side == other_.side and self.depth == other_.depth and self.position_m == other_.position_m
+
+    def __editors_init(self) -> None:
+        core_layout = QHBoxLayout()
+
+        flo = QFormLayout()
+        self.side_editor.addItems(["Верхняя", "Нижняя"])
+        self.side_editor.currentIndexChanged.connect(self.side_changed_action)
+        flo.addRow("Сторона", self.side_editor)
+        core_layout.addLayout(flo)
+
+        flo = QFormLayout()
+        self.depth_editor.setValidator(QIntValidator())
+        self.depth_editor.setAlignment(Qt.AlignRight)
+        self.depth_editor.textChanged.connect(self.depth_edit_action)
+        flo.addRow("Глубина (мм)", self.depth_editor)
+        core_layout.addLayout(flo)
+
+        flo = QFormLayout()
+        self.position_editor.setValidator(QDoubleValidator(0., 8., 2))
+        self.position_editor.textChanged.connect(self.position_edit_action)
+        self.position_editor.setAlignment(Qt.AlignRight)
+        flo.addRow("Позиция (м)", self.position_editor)
+        core_layout.addLayout(flo)
+
+        self.delete_button.setMaximumWidth(25)
+        self.delete_button.clicked.connect(self.delete_action)
+        core_layout.addWidget(self.delete_button)
+
+        self.setLayout(core_layout)
+
+    def __set_values_to_editors(self) -> None:
+        self.side_editor.setCurrentIndex(int(self.side == cf.BOTTOM_SIDE))
+        self.depth_editor.setText(str(self.depth))
+        self.position_editor.setText(str(self.position_m))
+
+    def side_changed_action(self, index_: int) -> None:
+        self.side = cf.UPPER_SIDE if index_ == 0 else cf.BOTTOM_SIDE
+
+    def depth_edit_action(self, text_: str) -> None:
+        self.depth = 0 if len(text_) < 1 else int(text_)
+
+    def position_edit_action(self, text_: str) -> None:
+        self.position_m = 0. if len(text_) < 1 else float(text_.replace(',', '.'))
+
+    def delete_action(self) -> None:
+        self.num = -1
+        self.setVisible(False)
+
+    def recreate(self, num_: int, list_owner_, side_: str = cf.UPPER_SIDE, depth_: int = 0, position_m_: float = 0) -> None:
+        self.num = num_
+        self.list_owner = list_owner_
+        self.side = side_
+        self.depth = depth_
+        self.position_m = position_m_
+        self.setVisible(self.num != -1)
+        self.__set_values_to_editors()
+        self.update()
+
+
+class CrackListWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.cracks = []
+
+        core_layout = QVBoxLayout()
+        for i in range(cf.MAX_CRACK_AMOUNT):
+            self.cracks.append(ChangerPipeCrack(-1, self))
+            core_layout.addWidget(self.cracks[i])
+
+        self.setLayout(core_layout)
+
+    def add_crack(self, side_: str = cf.UPPER_SIDE, depth_: int = 0, position_m_: float = 0) -> bool:
+        for i in range(len(self.cracks)):
+            if self.cracks[i].num == -1:
+                self.cracks[i].recreate(i, self, side_, depth_, position_m_)
+                return True
+        return False
+
+    def length(self) -> int:
+        c = 0
+        for i in range(len(self.cracks)):
+            if self.cracks[i] != -1:
+                c += 1
+        return c
+
+
+class CrackSettingsDialog(QDialog):
+    def __init__(self, pipe_rect_: PipeRectangle):
+        super().__init__()
+        self.pipe_rect = pipe_rect_
+        self.cracks = CrackListWidget()
+
+        self.setWindowTitle("Settings")
+        self.setWindowModality(Qt.ApplicationModal)
+
+        self.add_button = QPushButton("+ Добавить")
+        self.add_button.clicked.connect(self.add_crack_action)
+
+        self.accept_button = QPushButton("Применить")
+        self.accept_button.clicked.connect(self.accept_action)
+
+        self.cancel_button = QPushButton("Отменить")
+        self.cancel_button.setShortcut("Shift+Esc")
+        self.cancel_button.clicked.connect(self.cancel_action)
+
+        for crack in self.pipe_rect.cracks:
+            self.cracks.add_crack(crack.side, crack.depth, crack.position_m)
+
+        self.all_widgets_to_layout()
+
+    def all_widgets_to_layout(self) -> None:
+        accept_cancel_layout = QHBoxLayout()
+        accept_cancel_layout.addWidget(self.accept_button)
+        accept_cancel_layout.addWidget(self.cancel_button)
+
+        core_layout = QVBoxLayout()
+        core_layout.addWidget(self.cracks)
+        core_layout.addWidget(self.add_button)
+        core_layout.addLayout(accept_cancel_layout)
+
+        self.setLayout(core_layout)
+
+    def add_crack_action(self):
+        self.cracks.add_crack()
+        self.update()
+
+    def accept_action(self):
+        self.pipe_rect.clear()
+        for crack in self.cracks.cracks:
+            if crack.num == -1:
+                continue
+            is_copy = False
+            for added_crack in self.pipe_rect.cracks:
+                if added_crack == crack:
+                    is_copy = True
+                    crack.delete_action()
+                    break
+            if not is_copy:
+                self.pipe_rect.add_crack(crack.side, crack.depth, crack.position_m)
+        self.close()
+
+    def cancel_action(self):
+        self.close()
+
+    def run(self):
+        self.exec()
+
+
 class FrequencyResponseGraphWindowWidget(AbstractGraphWindowWidget):
     def __init__(self, main_window_: MainWindow):
         super().__init__(main_window_)
         self.plot_widget = FrequencyResponseGraphWidget(list(), self)
         self.plot_widget.setGeometry(0, 0, self.main_window.size().width(), self.main_window.size().height() * 0.7)
-        self.sensor_name_list = ['1', '1', '3', '3']
 
-        self.all_widgets_to_layout()
+        self.pipe_rect = PipeRectangle(cf.PIPE_RECTANGLE_POSITION)
+        self.pipe_rect.sensor_names = ['1', '1', '3', '3']
+        self.pipe_rect.add_crack(cf.UPPER_SIDE, 25, 0.3)
+        self.pipe_rect.add_crack(cf.BOTTOM_SIDE, 25, 0.6)
+
+        self.cracks_dialog = CrackSettingsDialog(self.pipe_rect)
+
+        self.crack_button = QPushButton("Задать трещены", self)
+        self.crack_button.setGeometry(50, 550, 200, 60)
+        self.crack_button.clicked.connect(self.run_dialog)
+
+    def run_dialog(self):
+        self.cracks_dialog.run()
+        self.update()
 
     def paintEvent(self, event_) -> None:
-        pipe_widget = PipeRectangle(cf.PIPE_RECTANGLE_POSITION, self.sensor_name_list, self)
-        pipe_widget.add_crack_line(cf.UPPER_SIDE, 25, 0.3)
-        pipe_widget.add_crack_line(cf.BOTTOM_SIDE, 25, 0.6)
-
-    def all_widgets_to_layout(self) -> None:
-        core_layout = QVBoxLayout()
-        # core_layout.addWidget(self.plot_widget)
-        self.setLayout(core_layout)
-        self.update()
+        pipe_painter = PipePainter(self, self.pipe_rect)
+        pipe_painter.draw_sensor_names()
+        pipe_painter.draw_all_cracks()
 
     def read_csv_into_data_frame(self) -> None:
         self.data_frames.clear()
-        self.data_frames.append([])
 
     def plot_graph_action(self) -> None:
         self.read_csv_into_data_frame()
@@ -383,7 +555,7 @@ class FrequencyResponseGraphWindowWidget(AbstractGraphWindowWidget):
 
     def replot_for_new_data(self) -> None:
         self.plot_widget.recreate(self.data_frames)
-        self.all_widgets_to_layout()
+        self.update()
 
 
 class CheckBoxHideFrequencyResponseGraphFunctor(AbstractFunctor):
