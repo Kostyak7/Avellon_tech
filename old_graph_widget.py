@@ -14,14 +14,31 @@ from third_party import MyWarning, get_num_file_by_default
 import config as cf
 
 
+def old_select_files(self_widget_: QWidget, filter_str_: str) -> list:
+    file_dialog = QFileDialog(self_widget_)
+    file_dialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
+    file_dialog.setNameFilter(filter_str_)
+    file_dialog.setDirectory(str(pathlib.Path().resolve() / cf.DEFAULT_FOLDER_NAME_FOR_SELECT))
+    if not file_dialog.exec():
+        return list()
+    filenames = file_dialog.selectedFiles()
+    print(filenames)
+    for i in range(len(filenames)):
+        if filenames[i].split('.')[-1].lower() not in cf.ALLOWED_FILE_LOAD_FORMATS:
+            QMessageBox.warning(self_widget_, cf.WRONG_TYPE_WARNING_TITLE,
+                                f"Выбранный файл: - {filenames[i]} - имеет неправильный формат!", QMessageBox.Ok)
+            return list()
+    return filenames
+
+
 class AbstractDataFrame:
-    def __init__(self, name_: str, parent_: QWidget = None):
+    def __init__(self, name_: str, widget_owner_: QWidget = None):
         self.name = name_
         self.id = uuid4()
         self.active = True
         self.data = None
         self.header = None
-        self.parent = parent_
+        self.widget_owner = widget_owner_
 
     def __eq__(self, other_) -> bool:
         return self.id == other_
@@ -37,26 +54,19 @@ class AbstractDataFrame:
 
 
 class XYDataFrame(AbstractDataFrame):
-    def __init__(self, filename_: str, parent_: QWidget = None):
-        super().__init__(os.path.basename(filename_), parent_)
+    def __init__(self, filename_: str, widget_owner_: QWidget = None):
+        super().__init__(os.path.basename(filename_), widget_owner_)
         self.filename = filename_
-        self.data = None
+        self.data = pd.read_csv(self.filename, header=None)
         is_exception = False
-
-        if not os.path.exists(self.filename) or not os.path.isfile(self.filename):
-            QMessageBox.warning(self.parent, cf.FILE_NOT_EXIST_WARNING_TITLE,
-                                f"{self.filename} - не существует или не является файлом!", QMessageBox.Ok)
-
-        else:
-            self.data = pd.read_csv(self.filename, header=None)
 
         try:
             self.header = self.header_init()
         except MyWarning as mw:
-            QMessageBox.warning(self.parent, mw.exception_title, mw.message, QMessageBox.Ok)
+            QMessageBox.warning(widget_owner_, mw.exception_title, mw.message, QMessageBox.Ok)
             is_exception = True
         except:
-            QMessageBox.warning(self.parent, cf.UNKNOWN_WARNING_TITLE, cf.UNKNOWN_WARNING_MESSAGE, QMessageBox.Ok)
+            QMessageBox.warning(widget_owner_, cf.UNKNOWN_WARNING_TITLE, cf.UNKNOWN_WARNING_MESSAGE, QMessageBox.Ok)
             is_exception = True
 
         if is_exception:
@@ -83,51 +93,22 @@ class XYDataFrame(AbstractDataFrame):
     def data_init(self) -> None:
         if not self.is_correct_read():
             return
-        self.data = self.data.drop(index=[0, 1, 2, 3, 4, 5])
-        self.data.loc[5] = ["y"]
-        # self.data = self.data.sort_index()
-
-    @staticmethod
-    def get_data_x(data_points_: int, time_base_: int) -> pd.DataFrame:
-        x_dataframe = pd.DataFrame()
-        step = time_base_ * 16 / data_points_
+        step = self.header['Time Base'] * 16 / self.header['Data points']
         steps = [None] * 6
-        for i in range(data_points_):
+        for i in range(self.header['Data points']):
             steps.append((i - 1) * step)
-        x_dataframe['x'] = steps
-        return x_dataframe
-
-
-class MaxesDataFrame(AbstractDataFrame):
-    def __init__(self, name_: str, maxes_: list, parent_: QWidget = None, max_value_: float = None):
-        super().__init__(name_, parent_)
-        self.data = {'y': maxes_, 'ry': []}
-
-        self.data_init(max_value_)
-        print(self.data)
-
-    def data_init(self, max_value_: float = None) -> None:
-        self.compute_relative_data(max_value_)
-
-    def compute_relative_data(self, max_value_: float = None) -> None:
-        max_of_maxes = max_value_
-        if max_of_maxes is None:
-            max_of_maxes = max(self.data['y'])
-        for max_ in self.data['y']:
-            self.data['ry'].append(max_ / max_of_maxes)
-
-    @staticmethod
-    def get_data_x(data_points_: int, start_point_: int = 0, step_: int = 1) -> dict:
-        x_dataframe = {'x': []}
-        for i in range(start_point_, data_points_, step_):
-            x_dataframe['x'].append(i)
-        return x_dataframe
-
+        self.data["Steps"] = steps
+        self.data = self.data.drop(index=[0, 1, 2, 3, 4, 5])
+        self.data.loc[5] = ["y", "x"]
+        self.data = self.data.sort_index()
+        self.data.to_csv(cf.TMP_FOR_WORK_FILENAME, index=False, header=None)
+        self.data = pd.read_csv(cf.TMP_FOR_WORK_FILENAME)
+        os.remove(cf.TMP_FOR_WORK_FILENAME)
 
 
 class Max1SectionDataFrame(AbstractDataFrame):
-    def __init__(self, name_: str, borehole_, parent_: QWidget):
-        super().__init__(name_, parent_)
+    def __init__(self, name_: str, borehole_, widget_owner_: QWidget = ):
+        super().__init__(name_, widget_owner_)
         self.borehole = borehole_
         self.data = []
         self.relative_data = []
@@ -143,12 +124,15 @@ class Max1SectionDataFrame(AbstractDataFrame):
         self.data = self.relative_data = self.header = None
 
     def data_init(self) -> bool:
-        for section in self.borehole.section_list:
-            for data_file in section.data_list:
-                if not data_file.is_complete():
+        for filename in self.filename_list:
+            if os.path.exists(filename) and os.path.isfile(filename):
+                tmp_value = XYDataFrame(filename, self.widget_owner).max_y
+                base_name = os.path.basename(filename)
+                measurement_num, sensor_num = get_num_file_by_default(base_name, cf.SENSOR_AMOUNT)
+                if measurement_num == -1 or sensor_num == -1:
+                    QMessageBox.warning(self.widget_owner, cf.WRONG_FILENAME_WARNING_TITLE,
+                                        f"{filename} - имеет не соответстующее требованиям название!", QMessageBox.Ok)
                     return False
-                tmp_value = data_file.xy_dataframe.max_y
-                measurement_num, sensor_num = data_file.measurement_num, data_file.sensor_num
                 if self.maxes_list[sensor_num] is None:
                     self.maxes_list[sensor_num] = tmp_value
                 elif tmp_value > self.maxes_list[sensor_num]:
@@ -158,6 +142,10 @@ class Max1SectionDataFrame(AbstractDataFrame):
                 self.data[measurement_num][sensor_num] = tmp_value
                 if sensor_num == 0:
                     self.data[measurement_num][-1] = tmp_value
+            else:
+                QMessageBox.warning(self.widget_owner, cf.FILE_NOT_EXIST_WARNING_TITLE,
+                                    f"{filename} - не существует или не является файлом!", QMessageBox.Ok)
+                return False
         self.__compute_data()
         self.compute_relative_data()
         return True
@@ -192,11 +180,11 @@ class Max1SectionDataFrame(AbstractDataFrame):
 
 
 class Max1SensorDataFrame(AbstractDataFrame):
-    def __init__(self, name_: str, data_files_: list, parent_: QWidget, x_mode_: str = cf.DEFAULT_X_AXES_MODE):
-        super().__init__(name_, parent_)
+    def __init__(self, name_: str, borehole_, widget_owner_: QWidget = , x_mode_: str = cf.DEFAULT_X_AXES_MODE):
+        super().__init__(name_, widget_owner_)
         self.data = {'x': [], 'y': []}
         self.relative_data = {'x': [], 'y': []}
-        self.data_files = data_files_
+        self.filename_list = filename_list_
         self.x_mode = x_mode_
 
         if not self.data_init():
@@ -210,22 +198,27 @@ class Max1SensorDataFrame(AbstractDataFrame):
 
     def data_init(self) -> bool:
         self_number = None
-        for data_file in self.data_files:
-            measurement_num, sensor_num = data_file.measurement_num, data_file.sensor_num
-            if self_number is None:
-                self_number = sensor_num
-            elif self_number != sensor_num:
-                measurement_num, sensor_num = -1, -1
-            if measurement_num == -1 or sensor_num == -1:
-                QMessageBox.warning(self.parent, cf.WRONG_FILENAME_WARNING_TITLE,
-                                    f"{data_file.filename} - имеет не соответстующее требованиям название!",
-                                    QMessageBox.Ok)
+        for filename in self.filename_list:
+            if os.path.exists(filename) and os.path.isfile(filename):
+                base_name = os.path.basename(filename)
+                measurement_num, sensor_num = get_num_file_by_default(base_name, cf.SENSOR_AMOUNT)
+                if self_number is None:
+                    self_number = sensor_num
+                elif self_number != sensor_num:
+                    measurement_num, sensor_num = -1, -1
+                if measurement_num == -1 or sensor_num == -1:
+                    QMessageBox.warning(self.widget_owner, cf.WRONG_FILENAME_WARNING_TITLE,
+                                        f"{filename} - имеет не соответстующее требованиям название!", QMessageBox.Ok)
+                    return False
+                if self.x_mode == cf.DEFAULT_X_AXES_MODE:
+                    self.data['x'].append(measurement_num)
+                elif self.x_mode == cf.F4T44_X_AXES_MODE:
+                    self.data['x'].append(4 + 2 * measurement_num)
+                self.data['y'].append(XYDataFrame(filename, self.widget_owner).max_y)
+            else:
+                QMessageBox.warning(self.widget_owner, cf.FILE_NOT_EXIST_WARNING_TITLE,
+                                    f"{filename} - не существует или не является файлом!", QMessageBox.Ok)
                 return False
-            if self.x_mode == cf.DEFAULT_X_AXES_MODE:
-                self.data['x'].append(measurement_num)
-            elif self.x_mode == cf.F4T44_X_AXES_MODE:
-                self.data['x'].append(4 + 2 * measurement_num)
-            self.data['y'].append(data_file.xy_dataframe.max_y)
         self.compute_relative_data()
         return True
 
@@ -244,65 +237,63 @@ class Max1SensorDataFrame(AbstractDataFrame):
 
 
 class AbstractQtGraphWidget(PlotWidget):
-    def __init__(self, data_frame_dict_: dict, parent_: QWidget = None):
+    def __init__(self, data_frame_list_: list, parent_: QWidget = None):
         super().__init__(parent_)
         self.id = uuid4()
-        self.data_frame_dict = data_frame_dict_
-        self.base_init()
+        self.data_frame_list = data_frame_list_
+        self.init_base()
         self.lines = []
         self.legend = self.addLegend()
 
-    def base_init(self):
+    def init_base(self):
         self.setBackground('w')
         self.showGrid(x=True, y=True)
 
-    def graph_init(self) -> None:
-        self.legend.clear()
-        if len(self.data_frame_dict.keys()) < 1:
-            return
-        c = 0
-        for key in self.data_frame_dict.keys():
-            for i in range(len(self.data_frame_dict[key])):
-                if c >= len(self.lines):
-                    self.lines.append(self.plot(self.data_frame_dict[key][i].data["x"],
-                                                self.data_frame_dict[key][i].data["y"], pen=mkPen(cf.COLOR_NAMES[i])))
-                else:
-                    if self.data_frame_dict[key][i].active:
-                        self.lines[c].setData(self.data_frame_dict[key][i].data["x"],
-                                              self.data_frame_dict[key][i].data["y"])
-                self.legend.addItem(self.lines[c], self.data_frame_dict[key][i].name)
-                c += 1
-
-    def recreate(self, data_frame_dict_: dict) -> None:
+    def recreate(self, data_frame_list_: list) -> None:
         for line in self.lines:
             line.clear()
-        self.data_frame_dict = data_frame_dict_
-        self.base_init()
-        self.graph_init()
+        self.data_frame_list = data_frame_list_
+        self.init_base()
+        self.init_graph()
+
+    def init_graph(self) -> None:
+        self.legend.clear()
+        if len(self.data_frame_list) < 1:
+            return
+        c = 0
+        for i in range(len(self.data_frame_list)):
+            if c >= len(self.lines):
+                self.lines.append(self.plot(self.data_frame_list[i].data["x"], self.data_frame_list[i].data["y"],
+                                            pen=mkPen(cf.COLOR_NAMES[i])))
+            else:
+                if self.data_frame_list[i].active:
+                    self.lines[c].setData(self.data_frame_list[i].data["x"], self.data_frame_list[i].data["y"])
+            self.legend.addItem(self.lines[c], self.data_frame_list[i].name)
+            c += 1
 
 
 class OscilloscopeGraphWidget(AbstractQtGraphWidget):
-    def __init__(self, data_frame_dict_: dict, parent_: QWidget = None):
-        super().__init__(data_frame_dict_, parent_)
-        self.graph_init()
+    def __init__(self, data_frame_list_: list, parent_: QWidget = None):
+        super().__init__(data_frame_list_, parent_)
+        self.init_graph()
         self.setTitle("Данные осциллографа")
         self.setLabel('left', 'Напряжение (мВ)')
         self.setLabel('bottom', 'Время (с)')
 
 
 class AmplitudeTimeGraphWidget(AbstractQtGraphWidget):
-    def __init__(self, data_frame_dict_: dict, parent_: QWidget = None):
-        super().__init__(data_frame_dict_, parent_)
-        self.graph_init()
+    def __init__(self, data_frame_list_: list, parent_: QWidget = None):
+        super().__init__(data_frame_list_, parent_)
+        self.init_graph()
         self.setTitle("Зависимость амплитуды во времени")
         self.setLabel('left', 'Значение')
         self.setLabel('bottom', 'Шаг')
 
 
 class FrequencyResponseGraphWidget(AbstractQtGraphWidget):
-    def __init__(self, data_frame_dict_: dict, parent_: QWidget = None):
-        super().__init__(data_frame_dict_, parent_)
-        self.graph_init()
+    def __init__(self, data_frame_list_: list, parent_: QWidget = None):
+        super().__init__(data_frame_list_, parent_)
+        self.init_graph()
         self.setTitle("Частотная характеристика")
         self.setLabel('left', 'U, В')
         self.setLabel('bottom', 'f, кГц')
@@ -439,6 +430,7 @@ class PipePainter(QPainter):
                           self.pipe_rect.position.y() + cf.SENSOR_PIPE_FONT_SIZE * cf.SOLID_PIPE_SIZE.height() / 100 + y_addition)
         self.drawText(position, name_)
 
+
 # MATPLOTLIB GRAPH
 class MplCanvas(FigureCanvasQTAgg):
     def __init__(self):
@@ -468,17 +460,17 @@ class MplWidget(QWidget):
 
         self.theta = np.array([0, 90, 180, 270, 360]) / 180 * np.pi
 
-    def set_data(self, data_frame_dict_: dict, index_: int = 0, is_relative_: bool = False):
-        if len(data_frame_dict_.keys()) < 1:
+    def set_data(self, data_frames_: list, index_: int = 0, is_relative_: bool = False):
+        if len(data_frames_) < 1:
             return
-        for key in data_frame_dict_.keys():
-            if not data_frame_dict_[key].is_correct_read() or \
-                    len(data_frame_dict_[key].data) <= index_ or len(data_frame_dict_[key].relative_data) <= index_:
+        for i in range(len(data_frames_)):
+            if not data_frames_[i].is_correct_read() or\
+                    len(data_frames_[i].data) <= index_ or len(data_frames_[i].relative_data) <= index_:
                 continue
             if is_relative_:
-                self.canvas.ax.plot(self.theta, data_frame_dict_[key].relative_data[index_])
+                self.canvas.ax.plot(self.theta, data_frames_[i].relative_data[index_])
             else:
-                self.canvas.ax.plot(self.theta, data_frame_dict_[key].data[index_])
+                self.canvas.ax.plot(self.theta, data_frames_[i].data[index_])
             self.canvas.draw()
 
     def clear(self):

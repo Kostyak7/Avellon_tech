@@ -2,9 +2,13 @@
 **/__pycache__/
 **/.idea/
 
+**/__avellon_cache__/
+**/projects/
 **/data/
 **/save_data/
 **/r_data/
 **/w_data/
 *.html
 *.csv
+
+test.py

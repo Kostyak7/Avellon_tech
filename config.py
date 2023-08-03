@@ -11,21 +11,31 @@ DEFAULT_BUTTON_SIZE = QSize(200, 50)
 SEQUENCE_NUMBER_SHORTCUT_MODE = "SEQNUM"
 NO_SHORTCUT_MODE = "NO"
 
+DEFAULT_PROJECT_NAME = "Avellon_Project_"
 
-SENSOR_AMOUNT = 4
+BOREHOLE_INFO_SAVE_FILENAME = "info.txt"
+DEFAULT_PROJECT_FOLDER = 'projects'
+
+DEFAULT_BOREHOLE_NAME_FONT_SIZE = 40
+
+DEFAULT_X_AXES_MODE = "DEFAULT_X_AXES_MODE"
+F4T44_X_AXES_MODE = "F4T44_X_AXES_MODE"
+DEFAULT_SENSOR_AMOUNT = 4
+DEFAULT_MEASUREMENT_NUMBER = 21
+
 
 ALLOWED_FILE_LOAD_FORMATS = ['csv']
 
+FILE_DIALOG_FOLDER_FILTER = "FOLDER_FILTER"
 FILE_DIALOG_CSV_FILTER = "CSV files (*.csv)"
 FILE_DIALOG_SAVE_FILTERS = ["JPG files (*.jpg; *.jpeg)", "PNG files (*.png)",
-                            "JPG files (*.jpg; *.jpeg)| PNG files (*.png)"]
+                            "JPG files (*.jpg; *.jpeg);; PNG files (*.png)"]
 DEFAULT_FOLDER_NAME_FOR_SELECT = "data"
 DEFAULT_FOLDER_NAME_TO_SAVE = "save_data"
 TYPES_OF_SAVING_FILE = ['png', 'jpg', 'jpeg']
 DEFAULT_FORMAT_OF_FILENAME = "%Y_%m_%d_%H_%M_%S"
 TMP_FOR_WORK_FILENAME = "WORK_VERSION.csv"
 
-PIPE_RECTANGLE_POSITION = QPoint(400, 550)
 SOLID_PIPE_SIZE = QSize(500, 100)
 DEFAULT_PIPE_LENGTH_IN_METERS = 1
 DASH_PIPE_SIZE = QSize(SOLID_PIPE_SIZE.width(), int(SOLID_PIPE_SIZE.height() / 2))
@@ -55,7 +65,7 @@ CSV_FILE_HEADER_CONTENT = {
 }
 
 COLOR_NAMES = ['red', 'blue', 'green', 'orange', 'burlywood',
-               'darkcyan', 'darkgoldenrod', 'darkgreen', 'pink',
+               'darkcyan', 'darkgoldenrod', 'pink',
                'darkgrey', 'darkkhaki', 'darkmagenta', 'darkolivegreen', 'darkorange',
                'darksalmon', 'darkseagreen', 'darkslateblue', 'darkturquoise', 'darkviolet',
                'deeppink', 'deepskyblue', 'dodgerblue', 'firebrick', 'forestgreen', 'fuchsia',
@@ -72,6 +82,7 @@ FILE_NOT_EXIST_WARNING_TITLE = "File not exist"
 WRONG_TYPE_WARNING_TITLE = "Wrong type"
 WRONG_FILENAME_WARNING_TITLE = "Wrong filename"
 INCORRECT_FILE_CONTENT_WARNING_TITLE = "Incorrect file content"
+NOT_EMPTY_FOLDER_WARNING_TITLE = "Not empty folder"
 UNKNOWN_WARNING_TITLE = "Unknown warning"
 
 
