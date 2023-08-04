@@ -412,24 +412,46 @@ class Step:
     def correlate_data(self, section_path_: str = None) -> None:
         if not self.exist(section_path_):
             return
-        path = self.path()
+        path = pathlib.Path(self.path())
         files_dict = dict()
 
-        for filename in pathlib.Path(path).glob('*'):
-            if os.path.isfile(filename):
-                files_dict[str(filename)] = False
+        for file_name in pathlib.Path(path).glob('*'):
+            if file_name.is_file():
+                files_dict[file_name] = False
 
         i = 0
         while i < len(self.data_list):
-            if self.data_list[i].name not in files_dict:
+            self_file_path = pathlib.Path(self.data_list[i].path())
+            if self_file_path not in files_dict:
                 self.__remove_file_by_index(i)
                 continue
-            files_dict[self.data_list[i].name] = True
+            files_dict[self_file_path] = True
             i += 1
 
-        for filename in files_dict.keys():
-            if not files_dict[filename]:
-                self.add_file(os.path.basename(filename))
+        for file_name in files_dict.keys():
+            if not files_dict[file_name]:
+                self.add_file(os.path.basename(file_name))
+
+        # if not self.exist(section_path_):
+        #     return
+        # path = self.path()
+        # files_dict = dict()
+        #
+        # for filename in pathlib.Path(path).glob('*'):
+        #     if os.path.isfile(filename):
+        #         files_dict[str(filename)] = False
+        #
+        # i = 0
+        # while i < len(self.data_list):
+        #     if self.data_list[i].name not in files_dict:
+        #         self.__remove_file_by_index(i)
+        #         continue
+        #     files_dict[self.data_list[i].name] = True
+        #     i += 1
+        #
+        # for filename in files_dict.keys():
+        #     if not files_dict[filename]:
+        #         self.add_file(os.path.basename(filename))
 
 
 class Section:
@@ -483,7 +505,9 @@ class Section:
         path_to_new = self.path() + '/' + str(number_)
         if not os.path.isdir(path_to_new):
             os.mkdir(path_to_new)
-        self.step_list.append(Step(number_, self.path(), id_))
+        new_step = Step(number_, self.path(), id_)
+        new_step.correlate_data()
+        self.step_list.append(new_step)
 
     def __remove_step_by_index(self, i_: int) -> None:
         if self.step_list[i_].exist():
@@ -522,27 +546,50 @@ class Section:
     def correlate_data(self, borehole_path_: str = None) -> None:
         if not self.exist(borehole_path_):
             return
-        path = self.path()
+        path = pathlib.Path(self.path())
         step_dict = dict()
 
-        for step_filename in pathlib.Path(path).glob("*"):
-            if os.path.isdir(step_filename):
-                step_dict[step_filename] = False
+        for step_name in pathlib.Path(path).glob('*'):
+            if step_name.is_dir() and os.path.basename(step_name).isdigit():
+                step_dict[step_name] = False
 
-        print(step_dict)
         i = 0
         while i < len(self.step_list):
-            print('\t', pathlib.Path(self.step_list[i].path()))
-            if pathlib.Path(self.step_list[i].path()) not in step_dict:
+            self_step_path = pathlib.Path(self.step_list[i].path())
+            if self_step_path not in step_dict:
                 self.__remove_step_by_index(i)
                 continue
-            step_dict[pathlib.Path(self.step_list[i].path())] = True
+            step_dict[self_step_path] = True
             self.step_list[i].correlate_data()
             i += 1
 
-        for step_filename in step_dict.keys():
-            if not step_dict[step_filename]:
-                self.add_step(int(os.path.basename(step_filename)))
+        for step_name in step_dict.keys():
+            if not step_dict[step_name]:
+                self.add_step(int(os.path.basename(step_name)))
+
+        # if not self.exist(borehole_path_):
+        #     return
+        # path = self.path()
+        # step_dict = dict()
+        #
+        # for step_filename in pathlib.Path(path).glob("*"):
+        #     if os.path.isdir(step_filename):
+        #         step_dict[step_filename] = False
+        #
+        # print(step_dict)
+        # i = 0
+        # while i < len(self.step_list):
+        #     print('\t', pathlib.Path(self.step_list[i].path()))
+        #     if pathlib.Path(self.step_list[i].path()) not in step_dict:
+        #         self.__remove_step_by_index(i)
+        #         continue
+        #     step_dict[pathlib.Path(self.step_list[i].path())] = True
+        #     self.step_list[i].correlate_data()
+        #     i += 1
+        #
+        # for step_filename in step_dict.keys():
+        #     if not step_dict[step_filename]:
+        #         self.add_step(int(os.path.basename(step_filename)))
         #
         #
         # for filename in pathlib.Path(path).glob('*'):
@@ -662,27 +709,50 @@ class Borehole:
     def correlate_data(self, path_: str = None) -> None:
         if not self.exist(path_):
             return
-        path = self.path()
+        path = pathlib.Path(self.path())
         section_dict = dict()
 
-        for filename in pathlib.Path(path).glob('*'):
-            if os.path.isdir(filename):
-                print('BRCR', filename)
-                section_dict[str(filename)] = False
+        for section_name in pathlib.Path(path).glob('*'):
+            if section_name.is_dir():
+                section_dict[section_name] = False
 
         i = 0
-        print(section_dict)
         while i < len(self.section_list):
-            if self.section_list[i].path() not in section_dict:
+            self_section_path = pathlib.Path(self.section_list[i].path())
+            if self_section_path not in section_dict:
                 self.__remove_section_by_index(i)
                 continue
-            section_dict[self.section_list[i].path()] = True
+            section_dict[self_section_path] = True
             self.section_list[i].correlate_data()
             i += 1
 
-        for filename in section_dict.keys():
-            if not section_dict[filename]:
-                self.add_section(os.path.basename(filename))
+        for section_name in section_dict.keys():
+            if not section_dict[section_name]:
+                self.add_section(os.path.basename(section_name))
+
+        # if not self.exist(path_):
+        #     return
+        # path = self.path()
+        # section_dict = dict()
+        #
+        # for filename in pathlib.Path(path).glob('*'):
+        #     if os.path.isdir(filename):
+        #         print('BRCR', filename)
+        #         section_dict[str(filename)] = False
+        #
+        # i = 0
+        # print(section_dict)
+        # while i < len(self.section_list):
+        #     if self.section_list[i].path() not in section_dict:
+        #         self.__remove_section_by_index(i)
+        #         continue
+        #     section_dict[self.section_list[i].path()] = True
+        #     self.section_list[i].correlate_data()
+        #     i += 1
+        #
+        # for filename in section_dict.keys():
+        #     if not section_dict[filename]:
+        #         self.add_section(os.path.basename(filename))
 
     def get_xy_dataframes_list(self) -> list:
         xy_dataframes_list = []
@@ -1120,7 +1190,7 @@ class BoreHoleDialog(QDialog):
                 for file in step.file_list.widget_list:
                     print('\t\tf\t', file.path)
 
-        time.sleep(10)
+        # time.sleep(10)
 
         self.borehole.correlate_data()
 
