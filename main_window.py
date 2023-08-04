@@ -186,7 +186,7 @@ class CreateProjectDialog(QDialog):
                 QMessageBox.warning(self, cf.NOT_EMPTY_FOLDER_WARNING_TITLE,
                                     f"{path} - не является папкой!", QMessageBox.Ok)
                 return
-            if len(os.listdir(path)) > 0:
+            if len([f for f in pathlib.Path(path).glob('*')]):
                 QMessageBox.warning(self, cf.NOT_EMPTY_FOLDER_WARNING_TITLE,
                                     f"Выбранная папка: - {path} - содержит файлы!"
                                     f"\nВыберете пустую или не существующую папку", QMessageBox.Ok)
@@ -247,7 +247,7 @@ class DataFile:
         self.id = id_
         if self.id is None:
             self.id = uuid4()
-        self.measurement_num, self.sensor_num = get_num_file_by_default(os.path.basename(self.name), cf.SENSOR_AMOUNT)
+        self.measurement_num, self.sensor_num = get_num_file_by_default(os.path.basename(self.name), cf.DEFAULT_SENSOR_AMOUNT)
         self.max_value = None
         self.is_select = False
 
@@ -285,7 +285,7 @@ class DataFile:
         if step_path_ is not None:
             self.change_path(step_path_)
         path = self.path()
-        return os.path.exists(path) and os.path.isfile(path)
+        return os.path.isfile(path)
 
 
 class Step:
@@ -300,7 +300,7 @@ class Step:
         self.data_list = []
         self.is_select = False
 
-        if len(os.listdir(self.path())):
+        if len([f for f in pathlib.Path(self.path()).glob('*')]):
             self.correlate_data()
 
     def __eq__(self, other_) -> bool:
@@ -398,25 +398,24 @@ class Step:
         if section_path_ is not None:
             self.change_path(section_path_)
         path = self.path()
-        return os.path.exists(path) and os.path.isdir(path)
+        return os.path.isdir(path)
 
     def correlate_data(self, section_path_: str = None) -> None:
         if not self.exist(section_path_):
             return
         path = self.path()
-        lod = os.listdir(path)
         files_dict = dict()
 
-        for filename in lod:
+        for filename in pathlib.Path(path).glob('*'):
             if os.path.isfile(filename):
-                files_dict[filename] = False
+                files_dict[str(filename)] = False
 
         i = 0
         while i < len(self.data_list):
-            if self.data_list[i] not in files_dict:
+            if self.data_list[i].name not in files_dict:
                 self.__remove_file_by_index(i)
                 continue
-            files_dict[self.data_list[i]] = True
+            files_dict[self.data_list[i].name] = True
             i += 1
 
         for filename in files_dict.keys():
@@ -438,7 +437,7 @@ class Section:
         self.step_list = []
         self.is_select = False
 
-        if len(os.listdir(self.path())):
+        if len([f for f in pathlib.Path(self.path()).glob('*')]):
             self.correlate_data()
 
     def __eq__(self, other_) -> bool:
@@ -473,7 +472,7 @@ class Section:
                 if step.id == id_:
                     return
         path_to_new = self.path() + '/' + str(number_)
-        if not os.path.exists(path_to_new) or not os.path.isdir(path_to_new):
+        if not os.path.isdir(path_to_new):
             os.mkdir(path_to_new)
         self.step_list.append(Step(number_, self.path(), id_))
 
@@ -509,25 +508,24 @@ class Section:
         if borehole_path_ is not None:
             self.change_path(borehole_path_)
         path = self.path()
-        return os.path.exists(path) and os.path.isdir(path)
+        return os.path.isdir(path)
 
     def correlate_data(self, borehole_path_: str = None) -> None:
         if not self.exist(borehole_path_):
             return
         path = self.path()
-        lod = os.listdir(path)
         step_dict = dict()
 
-        for filename in lod:
+        for filename in pathlib.Path(path).glob('*'):
             if os.path.isdir(filename):
-                step_dict[filename] = False
+                step_dict[str(filename)] = False
 
         i = 0
         while i < len(self.step_list):
-            if self.step_list[i] not in step_dict:
+            if self.step_list[i].name not in step_dict:
                 self.__remove_step_by_index(i)
                 continue
-            step_dict[self.step_list[i]] = True
+            step_dict[self.step_list[i].name] = True
             self.step_list[i].correlate_data()
             i += 1
 
@@ -561,6 +559,8 @@ class Borehole:
     def __init__(self, name_: str, path_: str, id_: str = None):
         self.name = name_
         self.up_path = path_
+        if not os.path.isdir(self.path()):
+            os.mkdir(self.path())
 
         self.id = id_
         if self.id is None:
@@ -590,7 +590,7 @@ class Borehole:
                 if step.id == id_:
                     return
         path_to_new = self.path() + '/' + name_
-        if not os.path.exists(path_to_new) or not os.path.isdir(path_to_new):
+        if not os.path.isdir(path_to_new):
             os.mkdir(path_to_new)
         self.section_list.append(Section(name_, self.path(), depth_, length_, id_))
 
@@ -626,25 +626,26 @@ class Borehole:
         if path_ is not None:
             self.change_path(path_)
         path = self.path()
-        return os.path.exists(path) and os.path.isdir(path)
+        return os.path.isdir(path)
 
     def correlate_data(self, path_: str = None) -> None:
+        print(path_)
         if not self.exist(path_):
             return
+        print("DOO")
         path = self.path()
-        lod = os.listdir(path)
         section_dict = dict()
 
-        for filename in lod:
+        for filename in pathlib.Path(path).glob('*'):
             if os.path.isdir(filename):
-                section_dict[filename] = False
+                section_dict[str(filename)] = False
 
         i = 0
         while i < len(self.section_list):
-            if self.section_list[i] not in section_dict:
+            if self.section_list[i].name not in section_dict:
                 self.__remove_section_by_index(i)
                 continue
-            section_dict[self.section_list[i]] = True
+            section_dict[self.section_list[i].name] = True
             self.section_list[i].correlate_data()
             i += 1
 
@@ -672,7 +673,10 @@ class Borehole:
         return dataframes_dict
 
     def save_info_to_file(self, filename_: str = cf.BOREHOLE_INFO_SAVE_FILENAME) -> None:
-        file = open(self.path() + '/' + filename_, "w")
+        path_filename = self.path() + '/' + filename_
+        if os.path.isfile(path_filename):
+            os.remove(path_filename)
+        file = open(path_filename, "w")
         file.write(f"BOREHOLE_NAME:{self.name}\n")
 
         file.write("#START SECTIONS\n")
@@ -686,8 +690,9 @@ class Borehole:
 
     def load_info_from_file(self, filename_: str = cf.BOREHOLE_INFO_SAVE_FILENAME) -> None:
         path = self.path() + '/' + filename_
-        if not os.path.exists(path) or not os.path.isfile(path):
+        if not os.path.isfile(path):
             return
+        print(len(self.section_list))
         file = open(path, "r")
 
         is_start = True
@@ -1057,21 +1062,47 @@ class BoreHoleDialog(QDialog):
         core_layout.addLayout(tmp_layout)
         self.setLayout(core_layout)
 
+    def add_section(self, name_: str, depth_: int = 0, length_: float = 0., id_: str = None) -> None:
+        self.section_list_widget.add_widget(SectionWidget(name_, self.section_list_widget, depth_, length_, id_))
+
     def add_section_action(self) -> None:
         len_default_name = len('name_')
         max_section_number = -1
         for section in self.section_list_widget.widget_list:
             if section.name[:len_default_name] == 'name_' and section.name[len_default_name:].isdigit():
                 max_section_number = max(int(section.name[len_default_name:]), max_section_number)
-        self.section_list_widget.add_widget(SectionWidget('name_' + str(max_section_number + 1),
-                                                          self.section_list_widget))
+        self.add_section('name_' + str(max_section_number + 1))
 
-        # self.section_list_widget.add_widget(SectionWidget(self.borehole.path + '/' + 'name_' + str(self.section_name_count),
-        #                                                   self.section_list_widget))
-        # self.section_name_count += 1
-        pass
+    def save_all_sections(self, up_path_: str) -> None:
+        borehole_path = self.borehole.path()
+        for filename in pathlib.Path(borehole_path).glob('*'):
+            is_inside_widget_list = False
+            file_base_name = os.path.basename(filename)
+            print("B", filename)
+            if os.path.isdir(filename):
+                for section in self.section_list_widget.widget_list:
+                    print('B\t', section.name)
+                    if section.name == file_base_name:
+                        is_inside_widget_list = True
+                        break
+            if os.path.isfile(filename) and file_base_name == cf.BOREHOLE_INFO_SAVE_FILENAME:
+                is_inside_widget_list = True
+            if not is_inside_widget_list:
+                if os.path.isdir(filename):
+                    shutil.rmtree(filename)
+                else:
+                    os.remove(filename)
+        for section in self.section_list_widget.widget_list:
+            section.save_all(borehole_path)
 
     def accept_action(self) -> None:
+        self.save_all_sections(self.borehole.up_path)
+        self.borehole.correlate_data()
+        for section in self.borehole.section_list:
+            for section_w in self.section_list_widget.widget_list:
+                if section.name == section_w.name:
+                    section.depth = section_w.depth
+                    section.length = section_w.length
         # self.borehole.section_list.clear()
         # for section_widget in self.section_list_widget.widget_list:
         #     self.borehole.add_section(section_widget.name, section_widget.depth, section_widget.length)
@@ -1083,14 +1114,16 @@ class BoreHoleDialog(QDialog):
         self.close()
 
     def run(self) -> None:
-        # self.section_list_widget.remove_all()
-        # for section in self.borehole.section_list:
-        #     print('BH;',  section.borehole_path)
-        #     section_widget = SectionWidget(section.borehole_path + '/' + section.name, self.section_list_widget,
-        #                                    section.depth, section.length)
-        #     for data_file in section.data_list:
-        #         section_widget.add_file(data_file.filename, data_file.is_select)
-        #     self.section_list_widget.add_widget(section_widget)
+        self.section_list_widget.remove_all()
+        for section in self.borehole.section_list:
+            self.add_section(section.name, section.depth, section.length, section.id)
+            section_w = self.section_list_widget.widget_list[len(self.section_list_widget.widget_list) - 1]
+            for step in section.step_list:
+                section_w.add_step(step.number, step.id)
+                step_w = section_w.step_list.widget_list[len(section_w.step_list.widget_list) - 1]
+                print(step_w is None)
+                for file in step.data_list:
+                    step_w.add_file(file.name, file.id)
         self.exec()
 
 
@@ -1124,7 +1157,8 @@ class FileWidget(AbstractBoreholeDialogItemWidget):
     def __init__(self, path_: str, parent_list_: ListWidget, id_: str = None, is_show_: bool = False):
         super().__init__(parent_list_, id_, is_show_)
         self.path = path_
-        self.checkbox.setText(os.path.basename(self.path))
+        self.basename = os.path.basename(self.path)
+        self.checkbox.setText(self.basename)
 
         self.__all_widgets_to_layout()
 
@@ -1136,7 +1170,7 @@ class FileWidget(AbstractBoreholeDialogItemWidget):
         self.setLayout(core_layout)
 
     def copy_to(self, step_dir_path_: str):
-        if os.path.exists(self.path) and os.path.isfile(self.path):
+        if os.path.isfile(self.path):
             shutil.copy2(self.path, step_dir_path_)
 
 
@@ -1226,16 +1260,37 @@ class StepWidget(AbstractBoreholeDialogItemWidget):
 
     def number_edit_action(self, text_: str) -> None:
         for step in self.parent_list.widget_list:
-            if int(text_) == step.number:
+            if len(text_) and int(text_) == step.number:
                 self.number_editor.setText(str(self.number))
                 return
-        self.number = int(text_)
+        if len(text_):
+            self.number = int(text_)
 
     def drop_list_action(self) -> None:
         self.is_dropped = not self.is_dropped
         self.drop_button.setText("△" if self.is_dropped else "▽")
         self.file_list.setVisible(self.is_dropped)
         self.parent_list.resize_item(self)
+
+    def save_all(self, section_path_: str) -> None:
+        step_path = section_path_ + '/' + str(self.number)
+        if not os.path.isdir(step_path):
+            os.mkdir(step_path)
+        for filename in pathlib.Path(step_path).glob('*'):
+            print('ST', filename)
+            is_inside_widget_list = False
+            file_base_name = os.path.basename(filename)
+            for file in self.file_list.widget_list:
+                if file.basename == file_base_name:
+                    is_inside_widget_list = True
+                    break
+            if not is_inside_widget_list:
+                if os.path.isdir(filename):
+                    shutil.rmtree(filename)
+                else:
+                    os.remove(filename)
+        for file in self.file_list.widget_list:
+            file.copy_to(step_path)
 
 
 class SectionWidget(AbstractBoreholeDialogItemWidget):
@@ -1350,16 +1405,38 @@ class SectionWidget(AbstractBoreholeDialogItemWidget):
         self.name = text_
 
     def depth_edit_action(self, text_: str) -> None:
-        self.depth = int(float(text_))
+        if len(text_):
+            self.depth = int(float(text_))
 
     def length_edit_action(self, text_: str) -> None:
-        self.length = float(text_)
+        if len(text_):
+            self.length = float(text_.replace(',', '.'))
 
     def drop_list_action(self) -> None:
         self.is_dropped = not self.is_dropped
         self.drop_button.setText("△" if self.is_dropped else "▽")
         self.step_list.setVisible(self.is_dropped)
         self.parent_list.resize_item(self)
+
+    def save_all(self, borehole_path_: str) -> None:
+        section_path = borehole_path_ + '/' + self.name
+        if not os.path.isdir(section_path):
+            os.mkdir(section_path)
+        for filename in pathlib.Path(section_path).glob('*'):
+            is_inside_widget_list = False
+            if os.path.isdir(filename) and str(filename).isdigit():
+                file_num = int(os.path.basename(filename))
+                for step in self.step_list.widget_list:
+                    if step.number == file_num:
+                        is_inside_widget_list = True
+                        break
+            if not is_inside_widget_list:
+                if os.path.isdir(filename):
+                    shutil.rmtree(filename)
+                else:
+                    os.remove(filename)
+        for step in self.step_list.widget_list:
+            step.save_all(section_path)
 
 
 # class FileWidgetItem(AbstractListWidgetItem):
