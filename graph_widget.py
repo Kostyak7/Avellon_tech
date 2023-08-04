@@ -244,7 +244,7 @@ class Max1SensorDataFrame(AbstractDataFrame):
 
 
 class AbstractQtGraphWidget(PlotWidget):
-    def __init__(self, data_frame_dict_: dict, parent_: QWidget = None):
+    def __init__(self, data_frame_dict_, parent_: QWidget = None):
         super().__init__(parent_)
         self.id = uuid4()
         self.data_frame_dict = data_frame_dict_
@@ -273,7 +273,7 @@ class AbstractQtGraphWidget(PlotWidget):
                 self.legend.addItem(self.lines[c], self.data_frame_dict[key][i].name)
                 c += 1
 
-    def recreate(self, data_frame_dict_: dict) -> None:
+    def recreate(self, data_frame_dict_) -> None:
         for line in self.lines:
             line.clear()
         self.data_frame_dict = data_frame_dict_
@@ -282,12 +282,28 @@ class AbstractQtGraphWidget(PlotWidget):
 
 
 class OscilloscopeGraphWidget(AbstractQtGraphWidget):
-    def __init__(self, data_frame_dict_: dict, parent_: QWidget = None):
-        super().__init__(data_frame_dict_, parent_)
+    def __init__(self, data_frame_list_: list, parent_: QWidget = None):
+        super().__init__(data_frame_list_, parent_)
         self.graph_init()
         self.setTitle("Данные осциллографа")
         self.setLabel('left', 'Напряжение (мВ)')
         self.setLabel('bottom', 'Время (с)')
+
+    def graph_init(self) -> None:
+        self.legend.clear()
+        if len(self.data_frame_dict) < 1:
+            return
+        c = 0
+        for i in range(len(self.data_frame_dict)):
+            if c >= len(self.lines):
+                self.lines.append(self.plot(self.data_frame_dict[i].data["x"],
+                                            self.data_frame_dict[i].data["y"], pen=mkPen(cf.COLOR_NAMES[i])))
+            else:
+                if self.data_frame_dict[i].active:
+                    self.lines[c].setData(self.data_frame_dict[i].data["x"],
+                                          self.data_frame_dict[i].data["y"])
+            self.legend.addItem(self.lines[c], self.data_frame_dict[i].name)
+            c += 1
 
 
 class AmplitudeTimeGraphWidget(AbstractQtGraphWidget):
