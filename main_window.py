@@ -432,28 +432,6 @@ class Step:
             if not files_dict[file_name]:
                 self.add_file(os.path.basename(file_name))
 
-        # if not self.exist(section_path_):
-        #     return
-        # path = self.path()
-        # files_dict = dict()
-        #
-        # for filename in pathlib.Path(path).glob('*'):
-        #     if os.path.isfile(filename):
-        #         files_dict[str(filename)] = False
-        #
-        # i = 0
-        # while i < len(self.data_list):
-        #     if self.data_list[i].name not in files_dict:
-        #         self.__remove_file_by_index(i)
-        #         continue
-        #     files_dict[self.data_list[i].name] = True
-        #     i += 1
-        #
-        # for filename in files_dict.keys():
-        #     if not files_dict[filename]:
-        #         self.add_file(os.path.basename(filename))
-
-
 class Section:
     def __init__(self, name_: str, borehole_path_: str, depth_: int = 0, length_: float = 0., id_: str = None):
         self.name = name_
@@ -567,55 +545,10 @@ class Section:
             if not step_dict[step_name]:
                 self.add_step(int(os.path.basename(step_name)))
 
-        # if not self.exist(borehole_path_):
-        #     return
-        # path = self.path()
-        # step_dict = dict()
-        #
-        # for step_filename in pathlib.Path(path).glob("*"):
-        #     if os.path.isdir(step_filename):
-        #         step_dict[step_filename] = False
-        #
-        # print(step_dict)
-        # i = 0
-        # while i < len(self.step_list):
-        #     print('\t', pathlib.Path(self.step_list[i].path()))
-        #     if pathlib.Path(self.step_list[i].path()) not in step_dict:
-        #         self.__remove_step_by_index(i)
-        #         continue
-        #     step_dict[pathlib.Path(self.step_list[i].path())] = True
-        #     self.step_list[i].correlate_data()
-        #     i += 1
-        #
-        # for step_filename in step_dict.keys():
-        #     if not step_dict[step_filename]:
-        #         self.add_step(int(os.path.basename(step_filename)))
-        #
-        #
-        # for filename in pathlib.Path(path).glob('*'):
-        #     print("STCR", filename)
-        #     if os.path.isdir(filename):
-        #         step_dict[str(filename)] = False
-        #
-        # i = 0
-        # print(step_dict)
-        # while i < len(self.step_list):
-        #     if str(pathlib.Path(self.step_list[i].path())) not in step_dict:
-        #         self.__remove_step_by_index(i)
-        #         continue
-        #     step_dict[str(pathlib.Path(self.step_list[i].path()))] = True
-        #     self.step_list[i].correlate_data()
-        #     i += 1
-        #
-        # for filename in step_dict.keys():
-        #     if not step_dict[filename]:
-        #         self.add_step(int(os.path.basename(filename)))
-
     def get_xy_dataframes_list(self) -> list:
         xy_dataframes_list = []
         for step in self.step_list:
-            if step.is_select:
-                xy_dataframes_list += step.get_xy_dataframes_list()
+            xy_dataframes_list += step.get_xy_dataframes_list()
         return xy_dataframes_list
 
     def get_sensor_dataframe_list(self) -> list:
@@ -730,36 +663,10 @@ class Borehole:
             if not section_dict[section_name]:
                 self.add_section(os.path.basename(section_name))
 
-        # if not self.exist(path_):
-        #     return
-        # path = self.path()
-        # section_dict = dict()
-        #
-        # for filename in pathlib.Path(path).glob('*'):
-        #     if os.path.isdir(filename):
-        #         print('BRCR', filename)
-        #         section_dict[str(filename)] = False
-        #
-        # i = 0
-        # print(section_dict)
-        # while i < len(self.section_list):
-        #     if self.section_list[i].path() not in section_dict:
-        #         self.__remove_section_by_index(i)
-        #         continue
-        #     section_dict[self.section_list[i].path()] = True
-        #     self.section_list[i].correlate_data()
-        #     i += 1
-        #
-        # for filename in section_dict.keys():
-        #     if not section_dict[filename]:
-        #         self.add_section(os.path.basename(filename))
-
     def get_xy_dataframes_list(self) -> list:
         xy_dataframes_list = []
         for section in self.section_list:
-            if section.is_select:
-
-                xy_dataframes_list += section.get_xy_dataframes_list()
+            xy_dataframes_list += section.get_xy_dataframes_list()
         return xy_dataframes_list
 
     def get_sensor_dataframe_dict(self) -> dict:
@@ -820,169 +727,6 @@ class Borehole:
                 elif line == "#START SECTION\n":
                     is_in_section = True
                     tmp_name, tmp_depth, tmp_length = '', -1, -1.
-
-
-# class DataFile:
-#     def __init__(self, filename_: str):
-#         self.filename = filename_
-#         self.id = uuid4()
-#         self.measurement_num = -1
-#         self.sensor_num = -1
-#         self.max_value = float('-inf')
-#         self.xy_dataframe = None
-#
-#         self.load_xy_dataframe()
-#
-#         self.is_select = False
-#
-#     def __eq__(self, other_) -> bool:
-#         return self.id == other_.id
-#
-#     def is_complete(self) -> bool:
-#         return self.xy_dataframe is not None and self.xy_dataframe.is_correct_read() and \
-#                self.measurement_num != -1 and self.sensor_num != -1
-#
-#     def max(self) -> float:
-#         if self.max_value == float('-inf'):
-#             self.load_xy_dataframe()
-#         return self.max_value
-#
-#     def select(self, select_: bool = True) -> None:
-#         self.is_select = select_
-#
-#     def load_xy_dataframe(self):
-#         self.measurement_num, self.sensor_num = get_num_file_by_default(os.path.basename(self.filename),
-#                                                                         cf.SENSOR_AMOUNT)
-#         if self.measurement_num == -1 or self.sensor_num == -1:
-#             QMessageBox.warning(QWidget(), cf.WRONG_FILENAME_WARNING_TITLE,
-#                                 f"{self.filename} - имеет не соответстующее требованиям название!", QMessageBox.Ok)
-#             return
-#         self.xy_dataframe = XYDataFrame(self.filename)
-#         self.max_value = self.xy_dataframe.max_y
-#         return self.xy_dataframe
-#
-#
-# class Section:
-#     def __init__(self, name_: str, depth_: int, length_: float, borehole_path_: str):
-#         self.name = name_
-#         self.depth = depth_
-#         self.length = length_
-#
-#         self.data_list = []
-#         self.borehole_path = borehole_path_
-#         self.load_section()
-#
-#     def add_file(self, filename_: str, is_select: bool = True) -> bool:
-#         for data_file in self.data_list:
-#             m_num, s_num = get_num_file_by_default(os.path.basename(filename_), cf.SENSOR_AMOUNT)
-#             if m_num == -1 or s_num == -1:
-#                 return False
-#             if data_file.filename == filename_:
-#                 data_file.load_xy_dataframe()
-#                 return data_file.is_complete()
-#         data_file = DataFile(filename_)
-#         data_file.is_select = is_select
-#         self.data_list.append(data_file)
-#         return data_file.is_complete()
-#
-#     def remove_file(self, filename_: str) -> None:
-#         for i in range(len(self.data_list)):
-#             if self.data_list[i].filename == filename_:
-#                 self.data_list.pop(i)
-#                 return
-#
-#     def max(self) -> float:
-#         if len(self.data_list) < 1:
-#             return float('-inf')
-#         res = self.data_list[0].max()
-#         for i in range(len(self.data_list) + 1):
-#             if self.data_list[i].max() > res:
-#                 res = self.data_list[i].max()
-#         return res
-#
-#     def load_section(self) -> None:
-#         self.data_list.clear()
-#         if not os.path.exists(self.borehole_path):
-#             return
-#         path_into = self.borehole_path + '/' + self.name
-#         if not os.path.exists(path_into):
-#             os.mkdir(path_into)
-#             return
-#         lof = os.listdir(path_into)
-#         for filename in lof:
-#             basename = os.path.basename(filename)
-#             m_num, s_num = get_num_file_by_default(basename, cf.SENSOR_AMOUNT)
-#             if m_num == -1 or s_num == -1:
-#                 continue
-#             self.add_file(path_into + '/' + basename, True)
-#
-#
-# class BoreHole:
-#     def __init__(self, name_: str, path_: str):
-#         self.name = name_
-#         self.section_amount = 0
-#         self.path = path_ + '/' + self.name
-#         self.section_list = []
-#         if not os.path.exists(self.path) or os.path.isfile(self.path):
-#             os.mkdir(self.path)
-#
-#         self.load_from_file('info.txt')
-#
-#     def add_section(self, name_: str, depth_: int, length_: float) -> None:
-#         section = Section(name_, depth_, length_, self.path)
-#         section.load_section()
-#         self.section_list.append(section)
-#
-#     def load_from_file(self, filename_: str) -> None:
-#         path = self.path + '/' + filename_
-#         if not os.path.exists(path) or not os.path.isfile(path):
-#             return
-#         info_file = open(path, "r")
-#
-#         is_start = True
-#         is_in_section = False
-#         tmp_name, tmp_depth, tmp_length = '', -1., -1.
-#         for line in info_file:
-#             if is_start:
-#                 print(line)
-#                 if line[:len("BOREHOLE_NAME")] != 'BOREHOLE_NAME':
-#                     return
-#                 self.name = line[len("BOREHOLE_NAME") + 1:-1]
-#                 is_start = False
-#             else:
-#                 if is_in_section:
-#                     if line[:len("SECTION_NAME")] == 'SECTION_NAME':
-#                         tmp_name = line[len("SECTION_NAME") + 1:-1]
-#                     elif line[:len("SECTION_DEPTH")] == 'SECTION_DEPTH':
-#                         tmp = line[len("SECTION_DEPTH") + 1:-1]
-#                         # if tmp.isdigit():
-#                         #     tmp_depth = float(line[len("SECTION_DEPTH") + 1:])
-#                         tmp_depth = float(line[len("SECTION_DEPTH") + 1:])
-#                     elif line[:len("SECTION_LENGTH")] == 'SECTION_LENGTH':
-#                         tmp = line[len("SECTION_LENGTH") + 1:-1]
-#                         # if tmp.isdecimal():
-#                         #     tmp_length = line[len("SECTION_LENGTH") + 1:-1]
-#                         tmp_length = line[len("SECTION_LENGTH") + 1:]
-#                     elif line == "#END SECTION\n":
-#                         self.add_section(tmp_name, tmp_depth, tmp_length)
-#                         is_in_section = False
-#                 elif line == "#START SECTION\n":
-#                     is_in_section = True
-#                     tmp_name, tmp_depth, tmp_length = '', -1., -1.
-#
-#     def write_to_file(self, filename_: str) -> None:
-#         path = self.path + '/' + filename_
-#         info_file = open(path, "w")
-#
-#         info_file.write(f"BOREHOLE_NAME:{self.name}\n")
-#         info_file.write("#START SECTIONS\n")
-#         for section in self.section_list:
-#             info_file.write("#START SECTION\n")
-#             info_file.write(f"SECTION_NAME:{section.name}\n")
-#             info_file.write(f"SECTION_DEPTH:{section.depth}\n")
-#             info_file.write(f"SECTION_LENGTH:{section.length}\n")
-#             info_file.write("#END SECTION\n")
-#         info_file.write("#END SECTIONS\n")
 
 
 class BoreholeWindowWidget(QWidget):
@@ -1108,7 +852,6 @@ class BoreHoleMenuWidget(AbstractWindowWidget):
         self.borehole_window.main_window.app.exit()
         # TODO save the project
         self.borehole_window.borehole.save_info_to_file()
-        # self.borehole_window.main_window.setCentralWidget(MainMenuWidget(self.main_window))
 
 
 class BoreHoleDialog(QDialog):
@@ -1196,6 +939,23 @@ class BoreHoleDialog(QDialog):
 
         print("OUT:", self.borehole.path())
         for section in self.borehole.section_list:
+            for section_w in self.section_list_widget.widget_list:
+                if section.name == section_w.name:
+                    section.select(section_w.is_selected())
+                    for step in section.step_list:
+                        for step_w in section_w.step_list.widget_list:
+                            if step_w.number == step.number:
+                                step.select(step_w.is_selected())
+                                for file in step.data_list:
+                                    for file_w in step_w.file_list.widget_list:
+                                        if file.name == os.path.basename(file_w.path):
+                                            file.select(file_w.is_selected())
+                                            ifs = True
+                                            break
+                                break
+                    break
+
+
             print('sec\t', section.path())
             for step in section.step_list:
                 print('\tstep\t', step.path())
@@ -1216,11 +976,15 @@ class BoreHoleDialog(QDialog):
         for section in self.borehole.section_list:
             self.add_section(section.name, section.depth, section.length, section.id)
             section_w = self.section_list_widget.widget_list[len(self.section_list_widget.widget_list) - 1]
+            section_w.checkbox.setChecked(section.is_select)
             for step in section.step_list:
                 section_w.add_step(step.number, step.id)
                 step_w = section_w.step_list.widget_list[len(section_w.step_list.widget_list) - 1]
+                step_w.checkbox.setChecked(step.is_select)
                 for file in step.data_list:
                     step_w.add_file(file.name, file.id)
+                    step_w.file_list.widget_list[len(step_w.file_list.widget_list) - 1]\
+                        .checkbox.setChecked(file.is_select)
 
         print("IN:", self.borehole.path())
         for section in self.borehole.section_list:
@@ -1834,7 +1598,7 @@ class OscilloscopeGraphWindowWidget(AbstractGraphWindowWidget):
         super().__init__(borehole_window_)
         self.table_widget = OscilloscopeTableWidget(self)
         self.checkbox_list_widget = HideCheckBoxesList(list(), list(), self)
-        self.plot_widget = OscilloscopeGraphWidget(dict(), self)
+        self.plot_widget = OscilloscopeGraphWidget(list(), self)
 
     def __all_widgets_to_layout(self) -> None:
         table_checkbox_layout = QHBoxLayout()
@@ -1854,6 +1618,8 @@ class OscilloscopeGraphWindowWidget(AbstractGraphWindowWidget):
             return
         self.table_widget.set_data(self.data_frames, self.borehole_window.main_window.size())
 
+        self.plot_widget.data_x = XYDataFrame.get_data_x(self.data_frames[0].header['Data points'],
+                                                         self.data_frames[0].header['Time Base'])
         self.replot_for_new_data()
         self.borehole_window.download_bar_action.setEnabled(True)
         self.borehole_window.download_as_bar_action.setEnabled(True)

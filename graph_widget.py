@@ -124,7 +124,6 @@ class MaxesDataFrame(AbstractDataFrame):
         return x_dataframe
 
 
-
 class Max1SectionDataFrame(AbstractDataFrame):
     def __init__(self, name_: str, borehole_, parent_: QWidget):
         super().__init__(name_, parent_)
@@ -285,6 +284,7 @@ class OscilloscopeGraphWidget(AbstractQtGraphWidget):
     def __init__(self, data_frame_list_: list, parent_: QWidget = None):
         super().__init__(data_frame_list_, parent_)
         self.graph_init()
+        self.data_x = None
         self.setTitle("Данные осциллографа")
         self.setLabel('left', 'Напряжение (мВ)')
         self.setLabel('bottom', 'Время (с)')
@@ -296,11 +296,11 @@ class OscilloscopeGraphWidget(AbstractQtGraphWidget):
         c = 0
         for i in range(len(self.data_frame_dict)):
             if c >= len(self.lines):
-                self.lines.append(self.plot(self.data_frame_dict[i].data["x"],
+                self.lines.append(self.plot(self.data_frame_dict[i].data_x["x"],
                                             self.data_frame_dict[i].data["y"], pen=mkPen(cf.COLOR_NAMES[i])))
             else:
                 if self.data_frame_dict[i].active:
-                    self.lines[c].setData(self.data_frame_dict[i].data["x"],
+                    self.lines[c].setData(self.data_frame_dict[i].data_x["x"],
                                           self.data_frame_dict[i].data["y"])
             self.legend.addItem(self.lines[c], self.data_frame_dict[i].name)
             c += 1
