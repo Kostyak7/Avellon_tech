@@ -11,23 +11,24 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, \
     QVBoxLayout, QHBoxLayout, QPushButton, QWidget, QMessageBox, QFormLayout,\
     QTableWidget, QTableWidgetItem, QLabel, QSlider, QDialog, QLineEdit, QComboBox, \
     QListWidget, QListWidgetItem, QCheckBox, QLayout
-from PySide6.QtGui import QScreen, QIcon, QPixmap, QIntValidator, QDoubleValidator, QColor
-from PySide6.QtCore import Qt, QUrl, QPoint, QSize, QRect
+from PySide6.QtGui import QScreen, QIcon, QPixmap, QIntValidator, QDoubleValidator, QPainter, QColor, QPen
+from PySide6.QtCore import Qt, QUrl, QPoint, QSize, QRect, QLine
 from PySide6.QtWidgets import QAbstractItemView
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from graph_widget import XYDataFrame, OscilloscopeGraphWidget, AmplitudeTimeGraphWidget,\
     FrequencyResponseGraphWidget, MplWidget, Max1SectionDataFrame, Max1SensorDataFrame, \
-    PipeRectangle, PipePainter, PipeCrack, MaxesDataFrame
+    MaxesDataFrame
 from third_party import AbstractFunctor, basename_decorator, AbstractCheckBoxList, \
     get_num_file_by_default, SimpleItemListWidget, SimpleItemListWidget, select_path_to_files, \
     select_path_to_dir, select_path_to_one_file, AbstractListWidgetItem, ListWidget, AbstractWindowWidget
 import config as cf
 
+# TODO 0) get XYDataFrame in Borehole
 # TODO 1) Графики и окна
-# TODO 2) Оптимизация датафреймов
+# TODO 2) Оптимизация датафреймов ???
 # TODO 3) Роза с несколькими секциями
-# TODO 4) Трубу в виджет
-# TODO 5) Настройки трубы
+# YETODO 4) Трубу в виджет
+# YETODO 5) Настройки трубы
 # TODO 6) Checkbox in ListWidget
 
 
@@ -256,7 +257,8 @@ class DataFile:
         self.id = id_
         if self.id is None:
             self.id = uuid4()
-        self.measurement_num, self.sensor_num = get_num_file_by_default(os.path.basename(self.name), cf.DEFAULT_SENSOR_AMOUNT)
+        self.measurement_num, self.sensor_num = get_num_file_by_default(os.path.basename(self.name),
+                                                                        cf.DEFAULT_SENSOR_AMOUNT)
         self.max_value = None
         self.is_select = False
 
@@ -431,6 +433,7 @@ class Step:
         for file_name in files_dict.keys():
             if not files_dict[file_name]:
                 self.add_file(os.path.basename(file_name))
+
 
 class Section:
     def __init__(self, name_: str, borehole_path_: str, depth_: int = 0, length_: float = 0., id_: str = None):
@@ -741,9 +744,9 @@ class BoreholeWindowWidget(QWidget):
 
         self.borehole_menu_widget = BoreHoleMenuWidget(self.name, self)
         self.oscilloscope_window_widget = OscilloscopeGraphWindowWidget(self)
-        # self.windrose_window_widget = WindRoseGraphWindowWidget(self)
-        # self.frequency_window_widget = FrequencyResponseGraphWindowWidget(self)
+        self.frequency_window_widget = FrequencyResponseGraphWindowWidget(self)
         # self.amplitude_window_widget = AmplitudeTimeGraphWindowWidget(self)
+        # self.windrose_window_widget = WindRoseGraphWindowWidget(self)
 
         menu_bar = self.main_window.menuBar()
         file_menu = menu_bar.addMenu("Скважина")
@@ -762,18 +765,18 @@ class BoreholeWindowWidget(QWidget):
         core_layout = QVBoxLayout()
         core_layout.addWidget(self.borehole_menu_widget)
         core_layout.addWidget(self.oscilloscope_window_widget)
-        # core_layout.addWidget(self.windrose_window_widget)
-        # core_layout.addWidget(self.frequency_window_widget)
+        core_layout.addWidget(self.frequency_window_widget)
         # core_layout.addWidget(self.amplitude_window_widget)
+        # core_layout.addWidget(self.windrose_window_widget)
         self.setLayout(core_layout)
 
     def __deactivate_all(self, is_active_: bool = False) -> None:
         self.main_window.menuBar().setVisible(is_active_)
         self.borehole_menu_widget.activate(is_active_)
         self.oscilloscope_window_widget.activate(is_active_)
-        # self.windrose_window_widget.activate(is_active_)
-        # self.frequency_window_widget.activate(is_active_)
+        self.frequency_window_widget.activate(is_active_)
         # self.amplitude_window_widget.activate(is_active_)
+        # self.windrose_window_widget.activate(is_active_)
 
     def borehole_menu_action(self) -> None:
         self.__deactivate_all()
@@ -788,8 +791,8 @@ class BoreholeWindowWidget(QWidget):
 
     def plot_frequency_resp_action(self) -> None:
         pass
-        # self.__deactivate_all()
-        # self.frequency_window_widget.activate()
+        self.__deactivate_all()
+        self.frequency_window_widget.activate()
 
     def plot_amplitude_time_action(self) -> None:
         pass
@@ -862,7 +865,7 @@ class BoreHoleDialog(QDialog):
 
         self.setWindowTitle("Borehole settings")
         self.setWindowModality(Qt.ApplicationModal)
-        self.setMinimumWidth(800)
+        self.setMinimumSize(800, 500)
 
         self.section_list_widget = ListWidget(self)
 
@@ -1165,7 +1168,6 @@ class StepWidget(AbstractBoreholeDialogItemWidget):
         print(os.listdir(step_path))
 
 
-
 class SectionWidget(AbstractBoreholeDialogItemWidget):
     def __init__(self, name_: str, parent_list_: ListWidget, depth_: int = 0, length_: float = 0.,
                  id_: str = None, is_show_: bool = False):
@@ -1313,165 +1315,6 @@ class SectionWidget(AbstractBoreholeDialogItemWidget):
                     os.remove(filename)
         for step in self.step_list.widget_list:
             step.save_all(section_path)
-
-
-# class FileWidgetItem(AbstractListWidgetItem):
-#     def __init__(self, name_: str, parent_list_: ListWidget, section_owner_, *args, **kwargs):
-#         super().__init__(name_, parent_list_)
-#         self.section_owner = section_owner_
-#
-#         self.checkbox = QCheckBox(os.path.basename(self.name), self)
-#         self.checkbox.setChecked(True)
-#
-#         self.delete_button = QPushButton("X", self)
-#         self.delete_button.setMaximumWidth(20)
-#         self.delete_button.clicked.connect(self.delete_action)
-#
-#         self.__all_widgets_to_layout()
-#         self.setVisible('is_show' in kwargs and kwargs['is_show'] or 'is_show' not in kwargs)
-#
-#     def __all_widgets_to_layout(self) -> None:
-#         core_layout = QHBoxLayout()
-#         core_layout.addWidget(self.checkbox)
-#         core_layout.addWidget(self.delete_button)
-#         core_layout.setSizeConstraint(QLayout.SetFixedSize)
-#         self.setLayout(core_layout)
-#
-#     def is_selected(self) -> bool:
-#         return self.checkbox.isChecked()
-#
-#
-# class SectionWidget(AbstractListWidgetItem):
-#     def __init__(self, section_path_: str, parent_list_: ListWidget = None,
-#                  depth_: int = 0, length_: float = 0., *args, **kwargs):
-#         super().__init__(os.path.basename(section_path_), parent_list_)
-#         self.depth = depth_
-#         self.length = length_
-#         self.path = section_path_
-#         if not os.path.exists(self.path) or not os.path.isdir(self.path):
-#             os.mkdir(self.path)
-#         print('SECTION PATH: ', self.path)
-#         self.file_list = ListWidget(self)
-#         self.is_dropped = True
-#
-#         self.checkbox = QCheckBox(self)
-#         self.checkbox.stateChanged.connect(self.click_checkbox_action)
-#
-#         self.name_editor = QLineEdit(self)
-#         self.depth_editor = QLineEdit(self)
-#         self.length_editor = QLineEdit(self)
-#         self.__editor_init()
-#         self.__values_to_editors()
-#
-#         self.add_button = QPushButton('+', self)
-#         self.drop_button = QPushButton('▽', self)
-#         self.plot_button = QPushButton('▶', self)
-#         self.delete_button = QPushButton('X', self)
-#         self.__button_init()
-#
-#         self.drop_list_action()
-#         self.__all_widgets_to_layout()
-#         self.setVisible('is_show' in kwargs and kwargs['is_show'] or 'is_show' not in kwargs)
-#
-#     def __eq__(self, other_) -> bool:
-#         return self.id == other_.id
-#
-#     def __editor_init(self) -> None:
-#         self.name_editor.setAlignment(Qt.AlignRight)
-#         self.name_editor.textChanged.connect(self.name_edit_action)
-#
-#         self.depth_editor.setAlignment(Qt.AlignRight)
-#         self.depth_editor.setValidator(QIntValidator())
-#         self.depth_editor.textChanged.connect(self.depth_edit_action)
-#
-#         self.length_editor.setAlignment(Qt.AlignRight)
-#         self.length_editor.setValidator(QDoubleValidator(0., 20., 1))
-#         self.length_editor.textChanged.connect(self.length_edit_action)
-#
-#     def __values_to_editors(self) -> None:
-#         self.name_editor.setText(self.name)
-#         self.depth_editor.setText(str(self.depth))
-#         self.length_editor.setText(str(self.length))
-#
-#     def __button_init(self) -> None:
-#         self.add_button.setMaximumWidth(20)
-#         self.add_button.clicked.connect(self.add_files_action)
-#
-#         self.drop_button.setMaximumWidth(20)
-#         self.drop_button.clicked.connect(self.drop_list_action)
-#
-#         self.plot_button.setMaximumWidth(20)
-#         self.plot_button.clicked.connect(self.plot_action)
-#
-#         self.delete_button.setMaximumWidth(20)
-#         self.delete_button.clicked.connect(self.delete_action)
-#
-#     def __all_widgets_to_layout(self) -> None:
-#         core_layout = QVBoxLayout()
-#         core_layout.addWidget(self.checkbox)
-#         base_layout = QHBoxLayout()
-#         flo = QFormLayout()
-#         flo.addRow("Имя", self.name_editor)
-#         base_layout.addLayout(flo)
-#         flo = QFormLayout()
-#         flo.addRow("Глубина (м)", self.depth_editor)
-#         base_layout.addLayout(flo)
-#         flo = QFormLayout()
-#         flo.addRow("Длина (м)", self.length_editor)
-#         base_layout.addLayout(flo)
-#         base_layout.addWidget(self.add_button)
-#         base_layout.addWidget(self.drop_button)
-#         base_layout.addWidget(self.plot_button)
-#         base_layout.addWidget(self.delete_button)
-#         core_layout.addLayout(base_layout)
-#         core_layout.addWidget(self.file_list)
-#         self.setLayout(core_layout)
-#
-#     def click_checkbox_action(self, state_) -> None:
-#         for file in self.file_list.widget_list:
-#             file.checkbox.setChecked(state_)
-#
-#     def name_edit_action(self, text_: str) -> None:
-#         for section in self.parent_list.widget_list:
-#             if section.name == text_:
-#                 self.name_editor.setText(self.name)
-#                 return
-#         try:
-#             os.rmdir(self.path)
-#         except:
-#             print("Not empty")
-#         self.path = self.path[:-len(self.name)]
-#         self.name = text_
-#         self.path += self.name
-#         if not os.path.exists(self.path) or os.path.isfile(self.path):
-#             os.mkdir(self.path)
-#
-#     def depth_edit_action(self, text_: str) -> None:
-#         self.depth = int(float(text_))
-#
-#     def length_edit_action(self, text_: str) -> None:
-#         self.length = float(text_)
-#
-#     def add_file(self, filename_: str, is_select: bool = False) -> None:
-#         file_widget = FileWidgetItem(filename_, self.file_list, self)
-#         self.file_list.add_widget(file_widget)
-#         file_widget.checkbox.setChecked(is_select)
-#
-#     def add_files_action(self) -> None:
-#         got_file_list = select_path_to_files(cf.FILE_DIALOG_CSV_FILTER, self, dir="data")
-#         for filename in got_file_list:
-#             path_to_file = self.path + '/' + os.path.basename(filename)
-#             shutil.copy2(filename, self.path)
-#             self.add_file(path_to_file, True)
-#
-#     def drop_list_action(self) -> None:
-#         self.is_dropped = not self.is_dropped
-#         self.drop_button.setText("△" if self.is_dropped else "▽")
-#         self.file_list.setVisible(self.is_dropped)
-#         self.parent_list.resize_item(self)
-#
-#     def plot_action(self) -> None:
-#         pass
 
 
 class AbstractGraphWindowWidget(AbstractWindowWidget):
@@ -1641,141 +1484,423 @@ class OscilloscopeGraphWindowWidget(AbstractGraphWindowWidget):
 
 
 # ---------------- FrequencyResponse ----------------
-# class ChangerPipeCrackWidget(PipeCrack, QWidget):
-#     def __init__(self, parent_list_: ListWidget, side_: str = cf.UPPER_SIDE, depth_: int = 0, position_m_: float = 0):
-#         PipeCrack.__init__(self, side_, depth_, position_m_)
-#         QWidget.__init__(self)
-#
-#         self.id = uuid4()
-#         self.parent_list = parent_list_
-#
-#         self.side_editor = QComboBox()
-#         self.depth_editor = QLineEdit()
-#         self.position_editor = QLineEdit()
-#         self.delete_button = QPushButton("X")
-#
-#         self.__editors_init()
-#         self.__set_values_to_editors()
-#         self.__all_widgets_to_layout()
-#
-#     def __eq__(self, other_) -> bool:
-#         return self.side == other_.side and self.depth == other_.depth and self.position_m == other_.position_m
-#
-#     def __all_widgets_to_layout(self) -> None:
-#         core_layout = QHBoxLayout()
-#         flo = QFormLayout()
-#         flo.addRow("Сторона", self.side_editor)
-#         core_layout.addLayout(flo)
-#         flo = QFormLayout()
-#         flo.addRow("Глубина (мм)", self.depth_editor)
-#         core_layout.addLayout(flo)
-#         flo = QFormLayout()
-#         flo.addRow("Позиция (м)", self.position_editor)
-#         core_layout.addLayout(flo)
-#
-#         core_layout.addWidget(self.delete_button)
-#
-#         self.setLayout(core_layout)
-#
-#     def __editors_init(self) -> None:
-#         self.side_editor.addItems(["Верхняя", "Нижняя"])
-#         self.side_editor.currentIndexChanged.connect(self.side_changed_action)
-#
-#         self.depth_editor.setValidator(QIntValidator())
-#         self.depth_editor.setAlignment(Qt.AlignRight)
-#         self.depth_editor.textChanged.connect(self.depth_edit_action)
-#
-#         self.position_editor.setValidator(QDoubleValidator(0., 8., 2))
-#         self.position_editor.textChanged.connect(self.position_edit_action)
-#         self.position_editor.setAlignment(Qt.AlignRight)
-#
-#         self.delete_button.setMaximumWidth(25)
-#         self.delete_button.clicked.connect(self.delete_action)
-#
-#     def __set_values_to_editors(self) -> None:
-#         self.side_editor.setCurrentIndex(int(self.side == cf.BOTTOM_SIDE))
-#         self.depth_editor.setText(str(self.depth))
-#         self.position_editor.setText(str(self.position_m))
-#
-#     def side_changed_action(self, index_: int) -> None:
-#         self.side = cf.UPPER_SIDE if index_ == 0 else cf.BOTTOM_SIDE
-#
-#     def depth_edit_action(self, text_: str) -> None:
-#         self.depth = 0 if len(text_) < 1 else int(text_)
-#
-#     def position_edit_action(self, text_: str) -> None:
-#         self.position_m = 0. if len(text_) < 1 else float(text_.replace(',', '.'))
-#
-#     def delete_action(self) -> None:
-#         self.parent_list.remove_item(self)
-#         self.id = None
-#
-#
-# class CrackSettingsDialog(QDialog):
-#     def __init__(self, pipe_rect_: PipeRectangle, parent_: QWidget = None):
-#         super().__init__(parent_)
-#         self.pipe_rect = pipe_rect_
-#         self.cracks_list_widget = ListWidget()
-#
-#         self.setWindowTitle("Settings")
-#         self.setWindowModality(Qt.ApplicationModal)
-#
-#         self.add_button = QPushButton("+ Добавить")
-#         self.accept_button = QPushButton("Применить")
-#         self.cancel_button = QPushButton("Отменить")
-#         self.__button_init()
-#
-#         for crack in self.pipe_rect.cracks:
-#             self.cracks_list_widget.add_widget(ChangerPipeCrackWidget(self.cracks_list_widget, crack.side,
-#                                                                       crack.depth, crack.position_m))
-#         self.__all_widgets_to_layout()
-#
-#     def __button_init(self) -> None:
-#         self.add_button.clicked.connect(self.add_crack_action)
-#         self.accept_button.clicked.connect(self.accept_action)
-#         self.cancel_button.setShortcut("Shift+Esc")
-#         self.cancel_button.clicked.connect(self.cancel_action)
-#
-#     def __all_widgets_to_layout(self) -> None:
-#         accept_cancel_layout = QHBoxLayout()
-#         accept_cancel_layout.addWidget(self.accept_button)
-#         accept_cancel_layout.addWidget(self.cancel_button)
-#
-#         core_layout = QVBoxLayout()
-#         core_layout.addWidget(self.cracks_list_widget)
-#         core_layout.addWidget(self.add_button)
-#         core_layout.addLayout(accept_cancel_layout)
-#
-#         self.setLayout(core_layout)
-#
-#     def add_crack_action(self):
-#         self.cracks_list_widget.add_widget(ChangerPipeCrackWidget(self.cracks_list_widget))
-#         self.update()
-#
-#     def accept_action(self):
-#         self.pipe_rect.clear()
-#         for crack in self.cracks_list_widget.widget_list:
-#             is_copy = False
-#             for added_crack in self.pipe_rect.cracks:
-#                 if added_crack == crack:
-#                     is_copy = True
-#                     crack.delete_action()
-#                     break
-#             if not is_copy:
-#                 self.pipe_rect.add_crack(crack.side, crack.depth, crack.position_m)
-#         self.close()
-#
-#     def cancel_action(self):
-#         self.close()
-#
-#     def run(self):
-#         self.exec()
-#
-#
-# class FrequencyResponseGraphWindowWidget(AbstractGraphWindowWidget):
-#     def __init__(self, borehole_window_: BoreHoleWindowWidget):
-#         super().__init__(borehole_window_)
-#         self.plot_widget = FrequencyResponseGraphWidget(dict(), self)
+class PipeCrack:
+    def __init__(self, side_: str, depth_: int, position_m_: float):
+        self.side = side_
+        self.depth = depth_
+        self.position_m = position_m_
+
+    def __eq__(self, other_) -> bool:
+        return self.side == other_.side and self.depth == other_.depth and self.position_m == other_.position_m
+
+
+class Pipe:
+    def __init__(self, length_: float, inner_d_: float, wall_thickness_: float, sensors_: list, direction_: str):
+        self.length = length_
+        self.inner_d = inner_d_
+        self.wall_thickness = wall_thickness_
+        self.sensors = sensors_
+        self.direction = direction_
+        self.cracks = []
+
+    def add_crack(self, side_: str, depth_: int, position_m_: float) -> None:
+        new_crack = PipeCrack(side_, depth_, position_m_)
+        for crack in self.cracks:
+            if crack == new_crack:
+                return
+        self.cracks.append(new_crack)
+
+
+class ComputePipeCrack:
+    def __init__(self, crack_: PipeCrack, pipe_: Pipe, position_: QPoint):
+        self.crack = crack_
+        self.pipe = pipe_
+        self.position = position_
+
+        self.side_addition = 0
+        if self.crack.side == cf.BOTTOM_SIDE:
+            self.side_addition = cf.DASH_PIPE_SIZE.height() + cf.RELATIVE_DASH_PIPE_POSITION.y()
+        self.absolute_x = cf.SOLID_PIPE_SIZE.width() * self.crack.position_m // self.pipe.length
+
+        self.line = self.compute_line()
+        self.position_text_position = self.compute_position_text_position()
+        self.depth_text_position = self.compute_depth_text_position()
+
+    def compute_line(self) -> QLine:
+        return QLine(QPoint(self.position.x() + self.absolute_x, self.position.y() + self.side_addition),
+                     QPoint(self.position.x() + self.absolute_x,
+                            int(self.position.y() + cf.RELATIVE_DASH_PIPE_POSITION.y() + self.side_addition)))
+
+    def compute_position_text_position(self) -> QPoint:
+        return QPoint(self.position.x() + self.absolute_x - cf.SOLID_PIPE_SIZE.width() // 50,
+                      self.position.y() + self.side_addition
+                      - cf.CRACK_PIPE_FONT_SIZE * cf.SOLID_PIPE_SIZE.height() / 200)
+
+    def compute_depth_text_position(self) -> QPoint:
+        return QPoint(self.position.x() + self.absolute_x + cf.SOLID_PIPE_SIZE.width() // 50,
+                      self.position.y() + self.side_addition
+                      + cf.CRACK_PIPE_FONT_SIZE * cf.SOLID_PIPE_SIZE.height() // 80)
+
+
+class PipePainterResources:
+    def __init__(self):
+        self.solid_pen = QPen()
+        self.thin_solid_pen = QPen()
+        self.dash_pen = QPen()
+        self.__pen_init()
+
+    def __pen_init(self) -> None:
+        self.solid_pen.setColor(cf.COLOR_NAMES[-1])
+        self.solid_pen.setStyle(Qt.SolidLine)
+        self.solid_pen.setWidth(cf.SOLID_PIPE_LINE_WIDTH)
+
+        self.thin_solid_pen.setColor(cf.COLOR_NAMES[-1])
+        self.thin_solid_pen.setStyle(Qt.SolidLine)
+        self.thin_solid_pen.setWidth(cf.CRACK_LINE_FOR_PIPE_WIDTH)
+
+        self.dash_pen.setColor(cf.COLOR_NAMES[-1])
+        self.dash_pen.setStyle(Qt.DashLine)
+        self.dash_pen.setWidth(cf.DASH_PIPE_LINE_WIDTH)
+
+
+class PipePainter(QPainter):
+    def __init__(self, pipe_: Pipe, paint_resources_: PipePainterResources, parent_: QWidget):
+        super().__init__(parent_)
+        self.pipe = pipe_
+        self.paint_resources = paint_resources_
+
+        self.position = QPoint((cf.PIPE_SECTION_SIZE.width() - cf.SOLID_PIPE_SIZE.width()) // 2,
+                               (cf.PIPE_SECTION_SIZE.height() - cf.SOLID_PIPE_SIZE.height()) // 2)
+
+        self.inner_position = self.position + cf.RELATIVE_DASH_PIPE_POSITION
+
+    def draw_all(self) -> None:
+        self.draw_pipe()
+        self.draw_sensors()
+        self.draw_cracks()
+
+    def draw_pipe(self) -> None:
+        self.setPen(self.paint_resources.solid_pen)
+        self.drawRect(QRect(self.position, cf.SOLID_PIPE_SIZE))
+
+        self.setPen(self.paint_resources.dash_pen)
+        self.drawRect(QRect(self.inner_position, cf.DASH_PIPE_SIZE))
+
+    def draw_sensors(self) -> None:
+        for i in range(len(self.pipe.sensors)):
+            self.__draw_sensor_name(i, self.pipe.sensors[i])
+
+    def __draw_sensor_name(self, index_: int, name_: str) -> None:
+        font = self.font()
+        font.setPixelSize(cf.SENSOR_PIPE_FONT_SIZE)
+        self.setFont(font)
+        x_addition, y_addition = 0, 0
+        if index_ == 2 or index_ == 3:
+            y_addition = cf.DASH_PIPE_SIZE.height() + cf.RELATIVE_DASH_PIPE_POSITION.y()
+        if index_ == 0 or index_ == 2:
+            x_addition = cf.SOLID_PIPE_SIZE.width() + cf.SOLID_PIPE_SIZE.width() / 25
+        position = QPoint(self.position.x() - cf.SOLID_PIPE_SIZE.width() / 30 + x_addition,
+                          self.position.y() + cf.SENSOR_PIPE_FONT_SIZE * cf.SOLID_PIPE_SIZE.height() / 100 + y_addition)
+        self.drawText(position, name_)
+
+    def draw_cracks(self) -> None:
+        for crack in self.pipe.cracks:
+            self.__draw_crack(crack)
+
+    def __draw_crack(self, crack_: PipeCrack) -> None:
+        compute_crack = ComputePipeCrack(crack_, self.pipe, self.position)
+
+        self.setPen(self.paint_resources.thin_solid_pen)
+        self.drawLine(compute_crack.line)
+
+        font = self.font()
+        font.setPixelSize(cf.CRACK_PIPE_FONT_SIZE)
+        self.setFont(font)
+        self.drawText(compute_crack.depth_text_position, str(crack_.depth) + ' ' + cf.PIPE_CRACK_DEPTH_UNIT)
+        self.drawText(compute_crack.position_text_position, str(crack_.position_m) + ' ' + cf.PIPE_CRACK_POSITION_UNIT)
+
+
+class PipeWidget(QWidget):
+    def __init__(self, parent_: QWidget = None):
+        super().__init__(parent_)
+        self.setMinimumSize(cf.PIPE_SECTION_SIZE)
+        self.pipe = Pipe(1, 0.3, 0.2, ['1', '1', '3', '3'], cf.LEFT_RIGHT_DIRECTION)
+
+        self.paint_resources = PipePainterResources()
+
+    def paintEvent(self, event_) -> None:
+        painter = PipePainter(self.pipe, self.paint_resources, self)
+        painter.draw_all()
+
+
+class ChangerPipeCrackWidget(PipeCrack, QWidget):
+    def __init__(self, parent_list_: ListWidget, pipe_length_: float,
+                 side_: str = cf.UPPER_SIDE, depth_: int = 0, position_m_: float = 0):
+        PipeCrack.__init__(self, side_, depth_, position_m_)
+        QWidget.__init__(self)
+        self.pipe_length = pipe_length_
+        if self.position_m > self.pipe_length:
+            self.position_m = self.pipe_length
+        self.parent_list = parent_list_
+
+        self.side_editor = QComboBox(self)
+        self.depth_editor = QLineEdit(self)
+        self.position_editor = QLineEdit(self)
+        self.__editors_init()
+        self.__set_values_to_editors()
+
+        self.delete_button = QPushButton("X", self)
+        self.__button_init()
+
+        self.__all_widgets_to_layout()
+
+    def __all_widgets_to_layout(self) -> None:
+        core_layout = QHBoxLayout()
+        flo = QFormLayout()
+        flo.addRow("Сторона", self.side_editor)
+        core_layout.addLayout(flo)
+        flo = QFormLayout()
+        flo.addRow("Глубина (мм)", self.depth_editor)
+        core_layout.addLayout(flo)
+        flo = QFormLayout()
+        flo.addRow("Позиция (м)", self.position_editor)
+        core_layout.addLayout(flo)
+        core_layout.addWidget(self.delete_button)
+        self.setLayout(core_layout)
+
+    def __editors_init(self) -> None:
+        self.side_editor.addItems(["Верхняя", "Нижняя"])
+        self.side_editor.currentIndexChanged.connect(self.side_changed_action)
+
+        self.depth_editor.setValidator(QIntValidator())
+        self.depth_editor.setAlignment(Qt.AlignRight)
+        self.depth_editor.textChanged.connect(self.depth_edit_action)
+
+        self.position_editor.setValidator(QDoubleValidator(0., 8., 2))
+        self.position_editor.textChanged.connect(self.position_edit_action)
+        self.position_editor.setAlignment(Qt.AlignRight)
+
+    def __button_init(self) -> None:
+        self.delete_button.setMaximumWidth(25)
+        self.delete_button.clicked.connect(self.delete_action)
+
+    def __set_values_to_editors(self) -> None:
+        self.side_editor.setCurrentIndex(int(self.side == cf.BOTTOM_SIDE))
+        self.depth_editor.setText(str(self.depth))
+        self.position_editor.setText(str(self.position_m))
+
+    def side_changed_action(self, index_: int) -> None:
+        self.side = cf.UPPER_SIDE if index_ == 0 else cf.BOTTOM_SIDE
+
+    def depth_edit_action(self, text_: str) -> None:
+        self.depth = 0 if len(text_) < 1 else int(text_)
+
+    def position_edit_action(self, text_: str) -> None:
+        self.position_m = 0. if len(text_) < 1 else float(text_.replace(',', '.'))
+        if self.position_m > self.pipe_length:
+            self.position_m = self.pipe_length
+            self.position_editor.setText(str(self.position_m))
+
+    def delete_action(self) -> None:
+        self.parent_list.remove_item(self)
+
+
+class ChangerPipeWidget(Pipe, QWidget):
+    def __init__(self, parent_: QWidget, length_: float, inner_d_: float, wall_thickness_: float,
+                 sensors_: list, direction_: str):
+        Pipe.__init__(self, length_, inner_d_, wall_thickness_, sensors_, direction_)
+        QWidget.__init__(self)
+
+        self.length_editor = QLineEdit(self)
+        self.inner_d_editor = QLineEdit(self)
+        self.wall_thickness_editor = QLineEdit(self)
+        self.direction_editor = QComboBox(self)
+        self.sensor_editors = [QLineEdit(self), QLineEdit(self), QLineEdit(self), QLineEdit(self)]
+        self.__editors_init()
+        self.__set_values_to_editors()
+
+        self.__all_widgets_to_layout()
+
+    def __all_widgets_to_layout(self) -> None:
+        form_layout = QFormLayout()
+        form_layout.addRow("Длина (м)", self.length_editor)
+        form_layout.addRow("Диаметр внутренней трубы (м)", self.inner_d_editor)
+        form_layout.addRow("Толщина стенки (м)", self.wall_thickness_editor)
+        form_layout.addRow("Направление прозвучки", self.direction_editor)
+
+        up_layout = QHBoxLayout()
+        for i in range(2):
+            flo = QFormLayout()
+            flo.addRow("Датчик №" + str(i + 1), self.sensor_editors[i])
+            up_layout.addLayout(flo)
+
+        low_layout = QHBoxLayout()
+        for i in range(2, 4):
+            flo = QFormLayout()
+            flo.addRow("Датчик №" + str(i + 1), self.sensor_editors[i])
+            low_layout.addLayout(flo)
+
+        core_layout = QVBoxLayout()
+        core_layout.addLayout(form_layout)
+        core_layout.addLayout(up_layout)
+        core_layout.addLayout(low_layout)
+        self.setLayout(core_layout)
+
+    def __editors_init(self) -> None:
+        self.length_editor.setValidator(QDoubleValidator(0., 8., 2))
+        self.length_editor.textChanged.connect(self.length_edit_action)
+        self.length_editor.setAlignment(Qt.AlignRight)
+
+        self.inner_d_editor.setValidator(QDoubleValidator(0., 2., 2))
+        self.inner_d_editor.textChanged.connect(self.inner_d_edit_action)
+        self.inner_d_editor.setAlignment(Qt.AlignRight)
+
+        self.wall_thickness_editor.setValidator(QDoubleValidator(0., 2., 2))
+        self.wall_thickness_editor.textChanged.connect(self.wall_thickness_edit_action)
+        self.wall_thickness_editor.setAlignment(Qt.AlignRight)
+
+        self.direction_editor.addItems(["->", "<-"])
+        self.direction_editor.currentIndexChanged.connect(self.direction_changed_action)
+
+        self.sensor_editors[0].textChanged.connect(self.sensor_0_edit_action)
+        self.sensor_editors[1].textChanged.connect(self.sensor_1_edit_action)
+        self.sensor_editors[2].textChanged.connect(self.sensor_2_edit_action)
+        self.sensor_editors[3].textChanged.connect(self.sensor_3_edit_action)
+
+    def __set_values_to_editors(self) -> None:
+        self.length_editor.setText(str(self.length))
+        self.inner_d_editor.setText(str(self.inner_d))
+        self.wall_thickness_editor.setText(str(self.wall_thickness))
+        self.direction_editor.setCurrentIndex(int(self.direction == cf.RIGHT_LEFT_DIRECTION))
+        for i in range(len(self.sensor_editors)):
+            self.sensor_editors[i].setText(self.sensors[i])
+
+    def length_edit_action(self, text_) -> None:
+        self.length = 0. if len(text_) < 1 else float(text_.replace(',', '.'))
+
+    def inner_d_edit_action(self, text_) -> None:
+        self.inner_d = 0. if len(text_) < 1 else float(text_.replace(',', '.'))
+
+    def wall_thickness_edit_action(self, text_) -> None:
+        self.wall_thickness = 0. if len(text_) < 1 else float(text_.replace(',', '.'))
+
+    def direction_changed_action(self, index_: int) -> None:
+        self.direction = cf.LEFT_RIGHT_DIRECTION if index_ == 0 else cf.RIGHT_LEFT_DIRECTION
+
+    def sensor_0_edit_action(self, text_) -> None:
+        self.sensors[0] = text_
+
+    def sensor_1_edit_action(self, text_) -> None:
+        self.sensors[1] = text_
+
+    def sensor_2_edit_action(self, text_) -> None:
+        self.sensors[2] = text_
+
+    def sensor_3_edit_action(self, text_) -> None:
+        self.sensors[3] = text_
+
+
+class CrackSettingsDialog(QDialog):
+    def __init__(self, pipe_: Pipe, parent_: QWidget = None):
+        super().__init__(parent_)
+        self.pipe = pipe_
+        self.pipe_settings_widget = ChangerPipeWidget(self, self.pipe.length, self.pipe.inner_d,
+                                                      self.pipe.wall_thickness, self.pipe.sensors, self.pipe.direction)
+        self.cracks_list_widget = ListWidget(self)
+
+        self.setWindowTitle("Cracks Settings")
+        self.setWindowModality(Qt.ApplicationModal)
+        self.setMinimumSize(800, 500)
+
+        self.add_button = QPushButton("+ Добавить")
+        self.accept_button = QPushButton("Применить")
+        self.cancel_button = QPushButton("Отменить")
+        self.__button_init()
+
+        for crack in self.pipe.cracks:
+            self.cracks_list_widget.add_widget(ChangerPipeCrackWidget(self.cracks_list_widget, self.pipe.length,
+                                                                      crack.side, crack.depth, crack.position_m))
+        self.__all_widgets_to_layout()
+
+    def __button_init(self) -> None:
+        self.add_button.clicked.connect(self.add_crack_action)
+        self.accept_button.clicked.connect(self.accept_action)
+        self.cancel_button.setShortcut("Shift+Esc")
+        self.cancel_button.clicked.connect(self.cancel_action)
+
+    def __all_widgets_to_layout(self) -> None:
+        accept_cancel_layout = QHBoxLayout()
+        accept_cancel_layout.addWidget(self.accept_button)
+        accept_cancel_layout.addWidget(self.cancel_button)
+
+        core_layout = QVBoxLayout()
+        core_layout.addWidget(self.pipe_settings_widget)
+        core_layout.addWidget(self.cracks_list_widget)
+        core_layout.addWidget(self.add_button)
+        core_layout.addLayout(accept_cancel_layout)
+
+        self.setLayout(core_layout)
+
+    def add_crack_action(self):
+        self.cracks_list_widget.add_widget(ChangerPipeCrackWidget(self.cracks_list_widget, self.pipe.length))
+        self.update()
+
+    def accept_action(self):
+        self.pipe.cracks.clear()
+        for crack in self.cracks_list_widget.widget_list:
+            self.pipe.add_crack(crack.side, crack.depth, crack.position_m)
+        self.close()
+        self.pipe.length = self.pipe_settings_widget.length
+        self.pipe.inner_d = self.pipe_settings_widget.inner_d
+        self.pipe.wall_thickness = self.pipe_settings_widget.wall_thickness
+        self.pipe.sensors = self.pipe_settings_widget.sensors
+        self.pipe.direction = self.pipe_settings_widget.direction
+
+    def cancel_action(self):
+        self.close()
+
+    def run(self):
+        self.exec()
+
+
+class FrequencyResponseGraphWindowWidget(AbstractGraphWindowWidget):
+    def __init__(self, borehole_window_: BoreholeWindowWidget):
+        super().__init__(borehole_window_)
+        self.plot_widget = FrequencyResponseGraphWidget(dict(), self)
+        self.pipe_widget = PipeWidget(self)
+        self.cracks_dialog = CrackSettingsDialog(self.pipe_widget.pipe, self)
+
+        self.crack_button = QPushButton("Задать параметры трубы", self)
+        self.__button_init()
+
+        self.__all_widgets_to_layout()
+
+    def __button_init(self) -> None:
+        self.crack_button.clicked.connect(self.run_crack_dialog)
+
+    def __all_widgets_to_layout(self) -> None:
+        btn_layout = QVBoxLayout()
+        btn_layout.addWidget(self.crack_button)
+
+        tmp_layout = QHBoxLayout()
+        tmp_layout.addLayout(btn_layout)
+        tmp_layout.addWidget(self.pipe_widget)
+
+        core_layout = QVBoxLayout()
+        core_layout.addWidget(self.plot_widget)
+        core_layout.addLayout(tmp_layout)
+        self.setLayout(core_layout)
+
+    def plot_graph_action(self) -> None:
+        pass
+
+    def replot_for_new_data(self) -> None:
+        pass
+
+    def run_crack_dialog(self) -> None:
+        self.cracks_dialog.run()
+        self.pipe_widget.update()
+
 #         self.plot_widget.setGeometry(0, 0, self.borehole_window.main_window.size().width(),
 #                                      self.borehole_window.main_window.size().height() * 0.7)
 #         # self.plot_widget.setMaximumHeight(600)
