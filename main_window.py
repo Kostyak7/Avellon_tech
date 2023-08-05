@@ -1,7 +1,6 @@
 import os
 import pathlib
 import time
-
 import numpy as np
 import pandas as pd
 import shutil
@@ -20,16 +19,21 @@ from graph_widget import XYDataFrame, OscilloscopeGraphWidget, AmplitudeTimeGrap
     MaxesDataFrame
 from third_party import AbstractFunctor, basename_decorator, AbstractCheckBoxList, \
     get_num_file_by_default, SimpleItemListWidget, SimpleItemListWidget, select_path_to_files, \
-    select_path_to_dir, select_path_to_one_file, AbstractListWidgetItem, ListWidget, AbstractWindowWidget
+    select_path_to_dir, select_path_to_one_file, AbstractListWidgetItem, ListWidget, AbstractWindowWidget, \
+    MyCheckBox
 import config as cf
 
-# TODO 0) get XYDataFrame in Borehole
-# TODO 1) Графики и окна
-# TODO 2) Оптимизация датафреймов ???
+# DONE 0) get XYDataFrame in Borehole
+# TODO 1) Amplitude time graph
+# DONE 2) Оптимизация датафреймов ???
 # TODO 3) Роза с несколькими секциями
-# YETODO 4) Трубу в виджет
-# YETODO 5) Настройки трубы
-# TODO 6) Checkbox in ListWidget
+# DONE 4) Трубу в виджет
+# DONE 5) Настройки трубы
+# DONE 6) Checkbox in ListWidget
+# TODO 7) get Step maxes dataframe
+# TODO 8) Selector by steps for frequency graph
+# TODO 9) Relative data
+# TODO 10) Save data for path
 
 
 class MainWindow(QMainWindow):
@@ -377,7 +381,7 @@ class Step:
         return self.max_value
 
     def get_xy_dataframes_list(self) -> list:
-        xy_dataframes_list = []
+        xy_dataframes_list = list()
         for data_file in self.data_list:
             xy_dataframe = data_file.get_xy_dataframe()
             if xy_dataframe is not None and xy_dataframe.is_correct_read() and data_file.is_select:
@@ -390,7 +394,7 @@ class Step:
             if data_file.sensor_num == -1 and data_file.get_xy_dataframe() is None:
                 self.remove_file(id=data_file.id)
             if data_file.sensor_num not in sensor_dict:
-                sensor_dict[data_file.sensor_num] = [0] * cf.DEFAULT_MEASUREMENT_NUMBER
+                sensor_dict[data_file.sensor_num] = [None] * cf.DEFAULT_MEASUREMENT_NUMBER
             sensor_dict[data_file.sensor_num][data_file.measurement_num] = data_file.max()
         dataframes_list = []
         for sensor_num in sensor_dict.keys():
@@ -555,17 +559,35 @@ class Section:
         return xy_dataframes_list
 
     def get_sensor_dataframe_list(self) -> list:
-        dataframes_list = list()
+        dataframes_list = []
         for step in self.step_list:
-            dataframe = step.get_sensor_dataframe_list()
-            dataframe.name = 'step=' + str(step.number) + ',' + dataframe.name
-            dataframes_list.append(dataframe)
+            step_df_list = step.get_sensor_dataframe_list()
+            not_none_count = 0
+            for df in step_df_list:
+                for value in df.data['y']:
+                    if value is not None:
+                        not_none_count += 1
+            if not_none_count == 21:
+                dataframes_list += step_df_list
         return dataframes_list
 
     def get_maxes_dataframe_list(self) -> list:
         dataframes_list = list()
         for step in self.step_list:
             dataframes_list.append(step.get_maxes_dataframe())
+        return dataframes_list
+
+    def get_step_maxes_dataframe_list(self) -> list:
+        dataframes_list = []
+        maxes_dict = dict()
+        for step in self.step_list:
+            step_df_list = step.get_sensor_dataframe_list()
+            for i in range(len(step_df_list)):
+                if i not in maxes_dict:
+                    maxes_dict[i] = []
+                maxes_dict[i].append(step_df_list[i].max())
+        for key in maxes_dict.keys():
+            dataframes_list.append(MaxesDataFrame(str(key), maxes_dict[key]))
         return dataframes_list
 
 
@@ -666,22 +688,30 @@ class Borehole:
             if not section_dict[section_name]:
                 self.add_section(os.path.basename(section_name))
 
-    def get_xy_dataframes_list(self) -> list:
-        xy_dataframes_list = []
+    def get_xy_dataframes_dict(self) -> dict:
+        xy_dataframes_dict = dict()
         for section in self.section_list:
-            xy_dataframes_list += section.get_xy_dataframes_list()
-        return xy_dataframes_list
+            xy_dataframes_dict[section.name] = section.get_xy_dataframes_list()
+        return xy_dataframes_dict
 
     def get_sensor_dataframe_dict(self) -> dict:
         dataframes_dict = dict()
         for section in self.section_list:
-            dataframes_dict[section.name] = section.get_sensor_dataframe_list()
+            section_df_list = section.get_sensor_dataframe_list()
+            if section_df_list is not None:
+                dataframes_dict[section.name] = section.get_sensor_dataframe_list()
         return dataframes_dict
 
     def get_maxes_dataframe_dict(self) -> dict:
         dataframes_dict = dict()
         for section in self.section_list:
-            dataframes_dict[section.name] = section.get_maxes_dataframe()
+            dataframes_dict[section.name] = section.get_maxes_dataframe_list()
+        return dataframes_dict
+
+    def get_step_maxes_dataframe_dict(self) -> dict:
+        dataframes_dict = dict()
+        for section in self.section_list:
+            dataframes_dict[section.name] = section.get_step_maxes_dataframe_list()
         return dataframes_dict
 
     def save_info_to_file(self, filename_: str = cf.BOREHOLE_INFO_SAVE_FILENAME) -> None:
@@ -745,7 +775,7 @@ class BoreholeWindowWidget(QWidget):
         self.borehole_menu_widget = BoreHoleMenuWidget(self.name, self)
         self.oscilloscope_window_widget = OscilloscopeGraphWindowWidget(self)
         self.frequency_window_widget = FrequencyResponseGraphWindowWidget(self)
-        # self.amplitude_window_widget = AmplitudeTimeGraphWindowWidget(self)
+        self.amplitude_window_widget = AmplitudeTimeGraphWindowWidget(self)
         # self.windrose_window_widget = WindRoseGraphWindowWidget(self)
 
         menu_bar = self.main_window.menuBar()
@@ -766,7 +796,7 @@ class BoreholeWindowWidget(QWidget):
         core_layout.addWidget(self.borehole_menu_widget)
         core_layout.addWidget(self.oscilloscope_window_widget)
         core_layout.addWidget(self.frequency_window_widget)
-        # core_layout.addWidget(self.amplitude_window_widget)
+        core_layout.addWidget(self.amplitude_window_widget)
         # core_layout.addWidget(self.windrose_window_widget)
         self.setLayout(core_layout)
 
@@ -775,7 +805,7 @@ class BoreholeWindowWidget(QWidget):
         self.borehole_menu_widget.activate(is_active_)
         self.oscilloscope_window_widget.activate(is_active_)
         self.frequency_window_widget.activate(is_active_)
-        # self.amplitude_window_widget.activate(is_active_)
+        self.amplitude_window_widget.activate(is_active_)
         # self.windrose_window_widget.activate(is_active_)
 
     def borehole_menu_action(self) -> None:
@@ -796,8 +826,8 @@ class BoreholeWindowWidget(QWidget):
 
     def plot_amplitude_time_action(self) -> None:
         pass
-        # self.__deactivate_all()
-        # self.amplitude_window_widget.activate()
+        self.__deactivate_all()
+        self.amplitude_window_widget.activate()
 
     def plot_depth_response_action(self) -> None:
         pass
@@ -1127,6 +1157,8 @@ class StepWidget(AbstractBoreholeDialogItemWidget):
         got_file_list = select_path_to_files(cf.FILE_DIALOG_CSV_FILTER, self, dir="data")
         for filename in got_file_list:
             self.add_file(filename)
+        if not self.is_dropped:
+            self.__drop_list(not self.is_dropped)
 
     def click_checkbox_action(self, state_: bool) -> None:
         for file in self.file_list.widget_list:
@@ -1140,11 +1172,14 @@ class StepWidget(AbstractBoreholeDialogItemWidget):
         if len(text_):
             self.number = int(text_)
 
-    def drop_list_action(self) -> None:
-        self.is_dropped = not self.is_dropped
+    def __drop_list(self, is_drop: bool) -> None:
+        self.is_dropped = is_drop
         self.drop_button.setText("△" if self.is_dropped else "▽")
         self.file_list.setVisible(self.is_dropped)
         self.parent_list.resize_item(self)
+
+    def drop_list_action(self) -> None:
+        self.__drop_list(not self.is_dropped)
 
     def save_all(self, section_path_: str) -> None:
         step_path = section_path_ + '/' + str(self.number)
@@ -1165,7 +1200,6 @@ class StepWidget(AbstractBoreholeDialogItemWidget):
                     os.remove(filename)
         for file in self.file_list.widget_list:
             file.copy_to(step_path)
-        print(os.listdir(step_path))
 
 
 class SectionWidget(AbstractBoreholeDialogItemWidget):
@@ -1267,6 +1301,8 @@ class SectionWidget(AbstractBoreholeDialogItemWidget):
             if max_number < step.number:
                 max_number = step.number
         self.add_step(max_number + 1)
+        if not self.is_dropped:
+            self.__drop_list(not self.is_dropped)
 
     def click_checkbox_action(self, state_) -> None:
         for step in self.step_list.widget_list:
@@ -1287,11 +1323,14 @@ class SectionWidget(AbstractBoreholeDialogItemWidget):
         if len(text_):
             self.length = float(text_.replace(',', '.'))
 
-    def drop_list_action(self) -> None:
-        self.is_dropped = not self.is_dropped
+    def __drop_list(self, is_drop: bool) -> None:
+        self.is_dropped = is_drop
         self.drop_button.setText("△" if self.is_dropped else "▽")
         self.step_list.setVisible(self.is_dropped)
         self.parent_list.resize_item(self)
+
+    def drop_list_action(self) -> None:
+        self.__drop_list(not self.is_dropped)
 
     def save_all(self, borehole_path_: str) -> None:
         section_path = borehole_path_ + '/' + self.name
@@ -1354,7 +1393,8 @@ class AbstractGraphWindowWidget(AbstractWindowWidget):
 
     def plot_graph_action(self) -> None: ...
 
-    def replot_for_new_data(self) -> None: ...
+    def replot_for_new_data(self) -> None:
+        self.plot_widget.recreate(self.data_frames)
 
     def help_window_action(self) -> None:
         QMessageBox.information(self, "Help info", "Какая-то справачная информация", QMessageBox.Ok)
@@ -1381,16 +1421,12 @@ class AbstractGraphWindowWidget(AbstractWindowWidget):
 
 
 class CheckBoxHideFunctor(AbstractFunctor):
-    def __init__(self, obj_id_: str, name_: str, graph_window_widget_: AbstractGraphWindowWidget):
-        self.name = name_
-        self.obj_id = obj_id_
+    def __init__(self, dataframe_, graph_window_widget_: AbstractGraphWindowWidget):
+        self.dataframe = dataframe_
         self.graph_window_widget = graph_window_widget_
 
     def action(self, state_: int) -> None:
-        for key in self.graph_window_widget.data_frames.keys():
-            for dataframe in self.graph_window_widget.data_frames[key]:
-                if dataframe.id == self.obj_id:
-                    dataframe.active = state_ != 0
+        self.dataframe.active = state_ != 0
         self.graph_window_widget.replot_for_new_data()
 
 
@@ -1399,6 +1435,16 @@ class HideCheckBoxesList(AbstractCheckBoxList):
         super().__init__(CheckBoxHideFunctor)
         self.setParent(graph_window_widget_)
         self.set_data(id_list_, names_list_, graph_window_widget_)
+
+
+class CheckBoxList(ListWidget):
+    def __init__(self, parent_: QWidget = None):
+        super().__init__(parent_)
+        self.setMaximumWidth(200)
+
+    def add_checkbox(self, text_: str, functor_: AbstractFunctor, checked_: bool):
+        checkbox = MyCheckBox(text_, functor_, checked_, self)
+        self.add_widget(checkbox)
 
 
 # ---------------- Oscilloscope ----------------
@@ -1419,20 +1465,25 @@ class OscilloscopeTableWidget(QTableWidget):
         self.setColumnWidth(1, int(window_size_.width() / 4))
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
-    def set_data(self, data_frames_: list, window_size_: QSize) -> None:
+    def set_data(self, data_frames_: dict, window_size_: QSize) -> None:
         self.clear()
-        data_frames_length = 0
-        if len(data_frames_) < 1 or not isinstance(data_frames_[0], XYDataFrame):
+        row_count, fkey = 0, None
+        for key in data_frames_:
+            dfl = len(data_frames_[key])
+            row_count += dfl
+            if dfl:
+                fkey = key
+        if fkey is None:
             return
-        self.__table_init(data_frames_length, 2, ["Файл", "Максимум, "
-                                                  + data_frames_[0].header['Data Uint']])
-        for i in range(len(data_frames_)):
-            lTWI = QTableWidgetItem(data_frames_[i].name)
-            rTWI = QTableWidgetItem(str(data_frames_[i].max_y))
-            lTWI.setTextAlignment(Qt.AlignRight)
-            rTWI.setTextAlignment(Qt.AlignRight)
-            self.setItem(i, 0, lTWI)
-            self.setItem(i, 1, rTWI)
+        self.__table_init(row_count, 2, ["Файл", "Максимум, " + data_frames_[fkey][0].header['Data Uint']])
+        for key in data_frames_:
+            for i in range(len(data_frames_[key])):
+                lTWI = QTableWidgetItem(data_frames_[key][i].name)
+                rTWI = QTableWidgetItem(str(data_frames_[key][i].max_y))
+                lTWI.setTextAlignment(Qt.AlignRight)
+                rTWI.setTextAlignment(Qt.AlignRight)
+                self.setItem(i, 0, lTWI)
+                self.setItem(i, 1, rTWI)
         self.__default_size_set(window_size_)
 
 
@@ -1440,8 +1491,10 @@ class OscilloscopeGraphWindowWidget(AbstractGraphWindowWidget):
     def __init__(self, borehole_window_: BoreholeWindowWidget):
         super().__init__(borehole_window_)
         self.table_widget = OscilloscopeTableWidget(self)
-        self.checkbox_list_widget = HideCheckBoxesList(list(), list(), self)
-        self.plot_widget = OscilloscopeGraphWidget(list(), self)
+        self.checkbox_list_widget = CheckBoxList(self)
+        self.plot_widget = OscilloscopeGraphWidget(dict(), self)
+
+        self.__all_widgets_to_layout()
 
     def __all_widgets_to_layout(self) -> None:
         table_checkbox_layout = QHBoxLayout()
@@ -1454,28 +1507,20 @@ class OscilloscopeGraphWindowWidget(AbstractGraphWindowWidget):
         self.setLayout(core_layout)
 
     def plot_graph_action(self) -> None:
-        # self.extract_to_data_frame()
-        self.data_frames = self.borehole_window.borehole.get_xy_dataframes_list()
-        print(self.data_frames)
+        self.data_frames = self.borehole_window.borehole.get_xy_dataframes_dict()
         if len(self.data_frames) < 1:
             return
         self.table_widget.set_data(self.data_frames, self.borehole_window.main_window.size())
 
-        self.plot_widget.data_x = XYDataFrame.get_data_x(self.data_frames[0].header['Data points'],
-                                                         self.data_frames[0].header['Time Base'])
         self.replot_for_new_data()
         self.borehole_window.download_bar_action.setEnabled(True)
         self.borehole_window.download_as_bar_action.setEnabled(True)
 
-        id_list, name_list = [], []
-        for dataframe in self.data_frames:
-            id_list.append(dataframe.id)
-            name_list.append(dataframe.name)
-        self.checkbox_list_widget.set_data(id_list, name_list, self)
-
-    def replot_for_new_data(self) -> None:
-        self.plot_widget.recreate(self.data_frames)
-        self.__all_widgets_to_layout()
+        self.checkbox_list_widget.remove_all()
+        for key in self.data_frames.keys():
+            for dataframe in self.data_frames[key]:
+                self.checkbox_list_widget.add_checkbox(dataframe.name,
+                                                       CheckBoxHideFunctor(dataframe, self), True)
 
     def save_data_for_path(self, path_: str, type_: str) -> None:
         if self.plot_widget is not None:
@@ -1860,6 +1905,8 @@ class CrackSettingsDialog(QDialog):
         self.close()
 
     def run(self):
+        for crack_changer in self.cracks_list_widget.widget_list:
+            crack_changer.pipe_length = self.pipe.length
         self.exec()
 
 
@@ -1869,6 +1916,8 @@ class FrequencyResponseGraphWindowWidget(AbstractGraphWindowWidget):
         self.plot_widget = FrequencyResponseGraphWidget(dict(), self)
         self.pipe_widget = PipeWidget(self)
         self.cracks_dialog = CrackSettingsDialog(self.pipe_widget.pipe, self)
+        self.checkbox_list_widget = CheckBoxList(self)
+        self.checkbox_list_widget.setMaximumWidth(300)
 
         self.crack_button = QPushButton("Задать параметры трубы", self)
         self.__button_init()
@@ -1885,6 +1934,7 @@ class FrequencyResponseGraphWindowWidget(AbstractGraphWindowWidget):
         tmp_layout = QHBoxLayout()
         tmp_layout.addLayout(btn_layout)
         tmp_layout.addWidget(self.pipe_widget)
+        tmp_layout.addWidget(self.checkbox_list_widget)
 
         core_layout = QVBoxLayout()
         core_layout.addWidget(self.plot_widget)
@@ -1892,164 +1942,65 @@ class FrequencyResponseGraphWindowWidget(AbstractGraphWindowWidget):
         self.setLayout(core_layout)
 
     def plot_graph_action(self) -> None:
-        pass
+        self.data_frames = self.borehole_window.borehole.get_sensor_dataframe_dict()
+        if len(self.data_frames.keys()) < 1:
+            return
 
-    def replot_for_new_data(self) -> None:
+        self.borehole_window.download_bar_action.setEnabled(True)
+        self.borehole_window.download_as_bar_action.setEnabled(True)
+
+        self.checkbox_list_widget.remove_all()
+        for section_name in self.data_frames.keys():
+            for dataframe in self.data_frames[section_name]:
+                self.checkbox_list_widget.add_checkbox(section_name + '=' + dataframe.name,
+                                                       CheckBoxHideFunctor(dataframe, self), True)
+        self.replot_for_new_data()
+
+    def save_data_for_path(self, path_: str, type_: str) -> None:
         pass
 
     def run_crack_dialog(self) -> None:
         self.cracks_dialog.run()
         self.pipe_widget.update()
 
-#         self.plot_widget.setGeometry(0, 0, self.borehole_window.main_window.size().width(),
-#                                      self.borehole_window.main_window.size().height() * 0.7)
-#         # self.plot_widget.setMaximumHeight(600)
-#
-#         # TODO relative_data_frames
-#         self.relative_data_frames = []
-#
-#         self.checkbox_list_widget = HideCheckBoxesList(list(), list(), self)
-#         self.checkbox_list_widget.setParent(self)
-#         self.checkbox_list_widget.setGeometry(1000, 480, 200, 200)
-#
-#         # self.pipe_widget = PipeWidget(self)
-#
-#         self.pipe_rect = PipeRectangle(QPoint(400, 550))
-#         self.pipe_rect.sensor_names = ['1', '1', '3', '3']
-#
-#         self.cracks_dialog = CrackSettingsDialog(self.pipe_rect)
-#
-#         self.crack_button = QPushButton("Задать трещены", self)
-#         self.crack_button.setGeometry(50, 550, 200, 60)
-#         self.crack_button.clicked.connect(self.run_dialog)
-#
-#         self.pipe_button = QPushButton("Задать параметры трубы", self)
-#         self.pipe_button.setGeometry(50, 620, 200, 60)
-#         self.pipe_button.clicked.connect(self.run_dialog)
-#
-#     def run_dialog(self):
-#         self.cracks_dialog.run()
-#         self.update()
-#
-#     def __all_widgets_to_layout(self) -> None:
-#         btn_layout = QVBoxLayout()
-#         btn_layout.addWidget(self.crack_button)
-#         btn_layout.addWidget(self.pipe_button)
-#
-#         tmp_layout = QHBoxLayout()
-#         # tmp_layout.addLayout(btn_layout)
-#         # tmp_layout.addWidget(self.pipe_widget)
-#         tmp_layout.addWidget(self.checkbox_list_widget)
-#
-#         core_layout = QVBoxLayout()
-#         core_layout.addWidget(self.plot_widget)
-#         core_layout.addLayout(tmp_layout)
-#         self.setLayout(core_layout)
-#
-#     def paintEvent(self, event_) -> None:
-#         pipe_painter = PipePainter(self, self.pipe_rect)
-#         pipe_painter.draw_sensor_names()
-#         pipe_painter.draw_all_cracks()
-#
-#     def extract_to_data_frame(self) -> None:
-#         self.data_frames.clear()
-#         for section in self.borehole_window.borehole.section_list:
-#             sensors = dict()
-#             for data_file in section.data_list:
-#                 if data_file.sensor_num not in sensors:
-#                     sensors[data_file.sensor_num] = []
-#                 sensors[data_file.sensor_num].append(data_file)
-#             self.data_frames[section.name] = []
-#             for sensor_num in sensors.keys():
-#                 self.data_frames[section.name].append(Max1SensorDataFrame("sensor=" + str(sensor_num),
-#                                                                           sensors[sensor_num], self,
-#                                                                           cf.F4T44_X_AXES_MODE))
-#         # section_dict = dict()
-#         # for section in self.borehole_window.borehole.section_list:
-#         #     section_dict[section.name] = dict()
-#         #     for data_file in section.data_list:
-#         #         if data_file.sensor_num not in section_dict[section.name]:
-#         #             section_dict[section.name][data_file.sensor_num] = []
-#         #         section_dict[section.name][data_file.sensor_num].append(data_file)
-#         # for section in section_dict.keys():
-#         #     for sensor_num in section_dict[section].keys():
-#         #         self.data_frames.append(Max1SensorDataFrame("sensor=" + str(sensor_num),
-#         #                                                     section_dict[section][sensor_num],
-#         #                                                     self, cf.F4T44_X_AXES_MODE))
-#
-#     def plot_graph_action(self) -> None:
-#         self.extract_to_data_frame()
-#         if len(self.data_frames.keys()) < 1:
-#             return
-#
-#         self.borehole_window.download_bar_action.setEnabled(True)
-#         self.borehole_window.download_as_bar_action.setEnabled(True)
-#
-#         id_list, name_list = [], []
-#         for key in self.data_frames.keys():
-#             for dataframe in self.data_frames[key]:
-#                 id_list.append(dataframe.id)
-#                 name_list.append(dataframe.name)
-#         self.checkbox_list_widget.set_data(id_list, name_list, self)
-#
-#         self.replot_for_new_data()
-#
-#     def replot_for_new_data(self) -> None:
-#         self.plot_widget.recreate(self.data_frames)
-#         self.update()
-#
-#
-# # ---------------- AmplitudeTime ----------------
-# class AmplitudeTimeGraphWindowWidget(AbstractGraphWindowWidget):
-#     def __init__(self, borehole_window_: BoreHoleWindowWidget):
-#         super().__init__(borehole_window_)
-#         self.plot_widget = AmplitudeTimeGraphWidget(dict(), self)
-#         self.relative_data_frames = []
-#         self.checkbox_list_widget = HideCheckBoxesList(list(), list(), self)
-#
-#     def __all_widgets_to_layout(self) -> None:
-#         core_layout = QVBoxLayout()
-#         core_layout.addWidget(self.plot_widget)
-#         core_layout.addWidget(self.checkbox_list_widget)
-#         self.setLayout(core_layout)
-#
-#     def extract_to_data_frame(self) -> None:
-#         self.data_frames.clear()
-#         for section in self.borehole_window.borehole.section_list:
-#             sensors = dict()
-#             for data_file in section.data_list:
-#                 if data_file.sensor_num not in self.data_frames[section.name]:
-#                     sensors[data_file.sensor_num] = []
-#                 sensors[data_file.sensor_num].append(data_file)
-#             self.data_frames[section.name] = []
-#             for sensor_num in sensors.keys():
-#                 self.data_frames[section.name].append(Max1SensorDataFrame("sensor=" + str(sensor_num),
-#                                                                           sensors[sensor_num], self,
-#                                                                           cf.F4T44_X_AXES_MODE))
-#
-#     def plot_graph_action(self) -> None:
-#         self.extract_to_data_frame()
-#         if len(self.data_frames) < 1:
-#             return
-#
-#         self.borehole_window.download_bar_action.setEnabled(True)
-#         self.borehole_window.download_as_bar_action.setEnabled(True)
-#
-#         id_list, name_list = [], []
-#         for key in self.data_frames.keys():
-#             for dataframe in self.data_frames[key]:
-#                 id_list.append(dataframe.id)
-#                 name_list.append(dataframe.name)
-#         self.checkbox_list_widget.set_data(id_list, name_list, self)
-#
-#         self.replot_for_new_data()
-#
-#     def replot_for_new_data(self) -> None:
-#         self.plot_widget.recreate(self.data_frames)
-#         self.__all_widgets_to_layout()
-#
-#
-# # ---------------- WindRose ----------------
+
+# ---------------- AmplitudeTime ----------------
+class AmplitudeTimeGraphWindowWidget(AbstractGraphWindowWidget):
+    def __init__(self, borehole_window_: BoreholeWindowWidget):
+        super().__init__(borehole_window_)
+        self.plot_widget = AmplitudeTimeGraphWidget(dict(), self)
+        self.checkbox_list_widget = CheckBoxList(self)
+
+    def __all_widgets_to_layout(self) -> None:
+        core_layout = QVBoxLayout()
+        core_layout.addWidget(self.plot_widget)
+        core_layout.addWidget(self.checkbox_list_widget)
+        self.setLayout(core_layout)
+
+    def plot_graph_action(self) -> None:
+        self.data_frames = self.borehole_window.borehole.get_step_maxes_dataframe_dict()
+        if len(self.data_frames) < 1:
+            return
+
+        self.borehole_window.download_bar_action.setEnabled(True)
+        self.borehole_window.download_as_bar_action.setEnabled(True)
+
+        max_v = -1
+        for section_name in self.data_frames.keys():
+            for dataframe in self.data_frames[section_name]:
+                if max_v < len(dataframe.data['y']):
+                    max_v = len(dataframe.data['y'])
+                self.checkbox_list_widget.add_checkbox(section_name + '=sensor=' + dataframe.name,
+                                                       CheckBoxHideFunctor(dataframe, self), True)
+
+        self.plot_widget.dict_data_x = {'0': MaxesDataFrame.get_data_x(max_v)}
+        self.replot_for_new_data()
+
+    def save_data_for_path(self, path_: str, type_: str) -> None:
+        pass
+
+
+# ---------------- WindRose ----------------
 # class WindRoseGraphWindowWidget(AbstractGraphWindowWidget):
 #     def __init__(self, borehole_window_: BoreHoleWindowWidget):
 #         super().__init__(borehole_window_)
@@ -2102,8 +2053,8 @@ class FrequencyResponseGraphWindowWidget(AbstractGraphWindowWidget):
 #             max_range = max(max_range, len(self.data_frames[key].data))
 #         self.slider.setRange(1, max_range)
 #         self.plot_widget.set_data(self.data_frames, self.slider.value() - 1, self.is_relative)
-#
-#
+
+
 # class CheckBoxAbsoluteValueWindRoseFunctor(AbstractFunctor):
 #     def __init__(self, obj_id_: str, name_: str, graph_window_widget_: WindRoseGraphWindowWidget):
 #         self.graph_window_widget = graph_window_widget_

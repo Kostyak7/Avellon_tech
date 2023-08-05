@@ -41,6 +41,7 @@ class XYDataFrame(AbstractDataFrame):
         super().__init__(os.path.basename(filename_), parent_)
         self.filename = filename_
         self.data = None
+        self.max_y = None
         is_exception = False
 
         if not os.path.exists(self.filename) or not os.path.isfile(self.filename):
@@ -62,7 +63,10 @@ class XYDataFrame(AbstractDataFrame):
         if is_exception:
             self.clear()
         self.data_init()
-        self.max_y = self.data['y'].max()
+
+    def clear(self):
+        self.active = False
+        self.data = self.header = self.max_y = None
 
     def is_correct_read(self) -> bool:
         return self.data is not None and self.header is not None
@@ -84,27 +88,33 @@ class XYDataFrame(AbstractDataFrame):
         if not self.is_correct_read():
             return
         self.data = self.data.drop(index=[0, 1, 2, 3, 4, 5])
-        self.data.loc[5] = ["y"]
-        # self.data = self.data.sort_index()
+        self.data = {'y': self.data[0].astype(float).values.tolist()}
+        self.max_y = max(self.data['y'])
 
     @staticmethod
-    def get_data_x(data_points_: int, time_base_: int) -> pd.DataFrame:
-        x_dataframe = pd.DataFrame()
+    def get_data_x(data_points_: int, time_base_: int) -> dict:
+        x_data = {'x': []}
         step = time_base_ * 16 / data_points_
-        steps = [None] * 6
         for i in range(data_points_):
-            steps.append((i - 1) * step)
-        x_dataframe['x'] = steps
-        return x_dataframe
+            x_data['x'].append((i - 1) * step)
+        return x_data
 
 
 class MaxesDataFrame(AbstractDataFrame):
     def __init__(self, name_: str, maxes_: list, parent_: QWidget = None, max_value_: float = None):
         super().__init__(name_, parent_)
         self.data = {'y': maxes_, 'ry': []}
+        self.max_value = None
 
         self.data_init(max_value_)
         print(self.data)
+
+    def max(self, max_value_: float = None) -> float:
+        if max_value_ is not None:
+            self.max_value = max_value_
+        if self.max_value is None and len(self.data['y']):
+            self.max_value = max(self.data['y'])
+        return self.max_value
 
     def data_init(self, max_value_: float = None) -> None:
         self.compute_relative_data(max_value_)
@@ -112,14 +122,14 @@ class MaxesDataFrame(AbstractDataFrame):
     def compute_relative_data(self, max_value_: float = None) -> None:
         max_of_maxes = max_value_
         if max_of_maxes is None:
-            max_of_maxes = max(self.data['y'])
+            max_of_maxes = self.max()
         for max_ in self.data['y']:
             self.data['ry'].append(max_ / max_of_maxes)
 
     @staticmethod
     def get_data_x(data_points_: int, start_point_: int = 0, step_: int = 1) -> dict:
         x_dataframe = {'x': []}
-        for i in range(start_point_, data_points_, step_):
+        for i in range(start_point_, start_point_ + data_points_ * step_, step_):
             x_dataframe['x'].append(i)
         return x_dataframe
 
@@ -243,10 +253,11 @@ class Max1SensorDataFrame(AbstractDataFrame):
 
 
 class AbstractQtGraphWidget(PlotWidget):
-    def __init__(self, data_frame_dict_, parent_: QWidget = None):
+    def __init__(self, data_frames_, parent_: QWidget = None):
         super().__init__(parent_)
         self.id = uuid4()
-        self.data_frame_dict = data_frame_dict_
+        self.data_frames = data_frames_
+        self.dict_data_x = dict()
         self.base_init()
         self.lines = []
         self.legend = self.addLegend()
@@ -255,73 +266,124 @@ class AbstractQtGraphWidget(PlotWidget):
         self.setBackground('w')
         self.showGrid(x=True, y=True)
 
-    def graph_init(self) -> None:
-        self.legend.clear()
-        if len(self.data_frame_dict.keys()) < 1:
-            return
-        c = 0
-        for key in self.data_frame_dict.keys():
-            for i in range(len(self.data_frame_dict[key])):
-                if c >= len(self.lines):
-                    self.lines.append(self.plot(self.data_frame_dict[key][i].data["x"],
-                                                self.data_frame_dict[key][i].data["y"], pen=mkPen(cf.COLOR_NAMES[i])))
-                else:
-                    if self.data_frame_dict[key][i].active:
-                        self.lines[c].setData(self.data_frame_dict[key][i].data["x"],
-                                              self.data_frame_dict[key][i].data["y"])
-                self.legend.addItem(self.lines[c], self.data_frame_dict[key][i].name)
-                c += 1
+    def graph_init(self) -> None: ...
 
-    def recreate(self, data_frame_dict_) -> None:
+    def data_x_init(self) -> None: ...
+
+    def recreate(self, data_frames_) -> None:
         for line in self.lines:
             line.clear()
-        self.data_frame_dict = data_frame_dict_
+        self.data_frames = data_frames_
+        self.data_x_init()
         self.base_init()
         self.graph_init()
 
 
 class OscilloscopeGraphWidget(AbstractQtGraphWidget):
-    def __init__(self, data_frame_list_: list, parent_: QWidget = None):
-        super().__init__(data_frame_list_, parent_)
+    def __init__(self, data_frames_: dict, parent_: QWidget = None):
+        super().__init__(data_frames_, parent_)
         self.graph_init()
-        self.data_x = None
         self.setTitle("Данные осциллографа")
         self.setLabel('left', 'Напряжение (мВ)')
         self.setLabel('bottom', 'Время (с)')
 
+    def data_x_init(self) -> None:
+        self.dict_data_x = dict()
+        for key in self.data_frames.keys():
+            for dataframe in self.data_frames[key]:
+                if dataframe.header['Data points'] not in self.dict_data_x:
+                    self.dict_data_x[dataframe.header['Data points']] = dict()
+                if dataframe.header['Time Base'] not in self.dict_data_x[dataframe.header['Data points']]:
+                    self.dict_data_x[dataframe.header['Data points']][dataframe.header['Time Base']] \
+                        = XYDataFrame.get_data_x(dataframe.header['Data points'], dataframe.header['Time Base'])
+
     def graph_init(self) -> None:
         self.legend.clear()
-        if len(self.data_frame_dict) < 1:
+        if len(self.data_frames.keys()) < 1:
             return
-        c = 0
-        for i in range(len(self.data_frame_dict)):
-            if c >= len(self.lines):
-                self.lines.append(self.plot(self.data_frame_dict[i].data_x["x"],
-                                            self.data_frame_dict[i].data["y"], pen=mkPen(cf.COLOR_NAMES[i])))
-            else:
-                if self.data_frame_dict[i].active:
-                    self.lines[c].setData(self.data_frame_dict[i].data_x["x"],
-                                          self.data_frame_dict[i].data["y"])
-            self.legend.addItem(self.lines[c], self.data_frame_dict[i].name)
-            c += 1
+        color_i, c = 0, 0
+        for key in self.data_frames.keys():
+            for i in range(len(self.data_frames[key])):
+                if color_i >= len(cf.COLOR_NAMES):
+                    color_i = 0
+                if c >= len(self.lines):
+                    self.lines.append(self.plot(self.dict_data_x[self.data_frames[key][i].header['Data points']]
+                                                [self.data_frames[key][i].header['Time Base']]['x'],
+                                                self.data_frames[key][i].data["y"], pen=mkPen(cf.COLOR_NAMES[color_i])))
+                elif self.data_frames[key][i].active:
+                    self.lines[c].setData(self.dict_data_x[self.data_frames[key][i].header['Data points']]
+                                          [self.data_frames[key][i].header['Time Base']]['x'],
+                                          self.data_frames[key][i].data["y"])
+                self.legend.addItem(self.lines[c], self.data_frames[key][i].name)
+                c += 1
+                color_i += 1
+
+
+class FrequencyResponseGraphWidget(AbstractQtGraphWidget):
+    def __init__(self, data_frames_: dict, parent_: QWidget = None):
+        super().__init__(data_frames_, parent_)
+        self.graph_init()
+        self.setTitle("Частотная характеристика")
+        self.setLabel('left', 'U, В')
+        self.setLabel('bottom', 'f, кГц')
+
+    def data_x_init(self) -> None:
+        self.dict_data_x = {'0': MaxesDataFrame.get_data_x(21, 4, 2)}
+
+    def graph_init(self) -> None:
+        self.legend.clear()
+        if len(self.data_frames.keys()) < 1:
+            return
+        color_i, c = 0, 0
+        for key in self.data_frames.keys():
+            for i in range(len(self.data_frames[key])):
+                if color_i >= len(cf.COLOR_NAMES):
+                    color_i = 0
+                if c >= len(self.lines):
+                    self.lines.append(self.plot(self.dict_data_x['0']['x'],
+                                                self.data_frames[key][i].data["y"],
+                                                pen=mkPen(cf.COLOR_NAMES[color_i])))
+                elif self.data_frames[key][i].active:
+                    self.lines[c].setData(self.dict_data_x['0']['x'],
+                                          self.data_frames[key][i].data["y"])
+                self.legend.addItem(self.lines[c], self.data_frames[key][i].name)
+                c += 1
+                color_i += 1
+            break
 
 
 class AmplitudeTimeGraphWidget(AbstractQtGraphWidget):
-    def __init__(self, data_frame_dict_: dict, parent_: QWidget = None):
-        super().__init__(data_frame_dict_, parent_)
+    def __init__(self, data_frames_: dict, parent_: QWidget = None):
+        super().__init__(data_frames_, parent_)
         self.graph_init()
         self.setTitle("Зависимость амплитуды во времени")
         self.setLabel('left', 'Значение')
         self.setLabel('bottom', 'Шаг')
 
+    def data_x_init(self) -> None:
+        # self.dict_data_x = {'0': MaxesDataFrame.get_data_x(21)}
+        pass
 
-class FrequencyResponseGraphWidget(AbstractQtGraphWidget):
-    def __init__(self, data_frame_dict_: dict, parent_: QWidget = None):
-        super().__init__(data_frame_dict_, parent_)
-        self.graph_init()
-        self.setTitle("Частотная характеристика")
-        self.setLabel('left', 'U, В')
-        self.setLabel('bottom', 'f, кГц')
+    def graph_init(self) -> None:
+        self.legend.clear()
+        if len(self.data_frames.keys()) < 1:
+            return
+        color_i, c = 0, 0
+        for key in self.data_frames.keys():
+            for i in range(len(self.data_frames[key])):
+                if color_i >= len(cf.COLOR_NAMES):
+                    color_i = 0
+                if c >= len(self.lines):
+                    self.lines.append(self.plot(self.dict_data_x['0']['x'],
+                                                self.data_frames[key][i].data["y"],
+                                                pen=mkPen(cf.COLOR_NAMES[color_i])))
+                elif self.data_frames[key][i].active:
+                    self.lines[c].setData(self.dict_data_x['0']['x'],
+                                          self.data_frames[key][i].data["y"])
+                self.legend.addItem(self.lines[c], self.data_frames[key][i].name)
+                c += 1
+                color_i += 1
+            break
 
 
 # MATPLOTLIB GRAPH

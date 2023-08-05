@@ -65,12 +65,12 @@ def get_num_file_by_default(base_name_: str, sensor_amount_: int) -> list:
 
 
 class AbstractFunctor:
-    def action(self, state_: int): ...
+    def action(self, state_: int) -> None: ...
 
 
 class MyCheckBox(QCheckBox):
-    def __init__(self, text_: str, functor_: AbstractFunctor, checked_: bool = True):
-        super().__init__(text_)
+    def __init__(self, text_: str, functor_: AbstractFunctor, checked_: bool = True, parent_: QWidget = None):
+        super().__init__(text_, parent_)
         self.functor = functor_
 
         self.setChecked(checked_)

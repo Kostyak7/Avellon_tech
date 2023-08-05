@@ -33,6 +33,9 @@ IF not EXIST "save_data" (
 IF not EXIST "__avellon_cash__" (
 	mkdir __avellon_cash__
 )
+IF not EXIST "projects/test_1" (
+	mkdir projects\test_1
+)
 
 :run
 call venv\Scripts\activate
