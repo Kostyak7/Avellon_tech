@@ -94,28 +94,6 @@ def basename_decorator(name_: str) -> str:
     return os.path.basename(name_)
 
 
-class AbstractCheckBoxList(QWidget):
-    def __init__(self, functor_class_, name_decorator_=empty_name_decorator):
-        super().__init__()
-        self.check_boxes = []
-        self.functor_class = functor_class_
-        self.name_decorator = name_decorator_
-        self.setLayout(QVBoxLayout())
-
-    def set_data(self, id_list: list, names_list: list, *args, **kwargs) -> None:
-        for checkbox in self.check_boxes:
-            checkbox.setVisible(False)
-        for i in range(min(len(id_list), len(names_list))):
-            if i >= len(self.check_boxes):
-                check_box = MyCheckBox(self.name_decorator(names_list[i]),
-                                       self.functor_class(id_list[i], names_list[i], *args, **kwargs))
-                self.layout().addWidget(check_box)
-                self.check_boxes.append(check_box)
-            else:
-                self.check_boxes[i].recreate(names_list[i],
-                                             self.functor_class(id_list[i], names_list[i], *args, **kwargs))
-
-
 class SimpleAbstractItemWidget:
     def __init__(self, name_: str = None, parent_: QWidget = None, *args, **kwargs): ...
     def __eq__(self, other_) -> bool: ...
