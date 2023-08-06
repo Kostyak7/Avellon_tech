@@ -1418,7 +1418,7 @@ class AbstractGraphWindowWidget(AbstractWindowWidget):
         self.plot_widget.recreate(self.data_frames)
 
     def help_window_action(self) -> None:
-        QMessageBox.information(self, "Help info", "Какая-то справачная информация", QMessageBox.Ok)
+        qmb = QMessageBox.information(self, "Help info", cf.HELP_INFO, QMessageBox.Ok)
 
     def back_borehole_menu_action(self) -> None:
         self.activate(False)
@@ -1622,13 +1622,13 @@ class PipePainterResources:
 
 
 class PipePainter(QPainter):
-    def __init__(self, pipe_: Pipe, paint_resources_: PipePainterResources, parent_: QWidget):
+    def __init__(self, pipe_: Pipe, paint_resources_: PipePainterResources, pipe_widget_size_: QSize, parent_: QWidget):
         super().__init__(parent_)
         self.pipe = pipe_
         self.paint_resources = paint_resources_
 
-        self.position = QPoint((cf.PIPE_SECTION_SIZE.width() - cf.SOLID_PIPE_SIZE.width()) // 2,
-                               (cf.PIPE_SECTION_SIZE.height() - cf.SOLID_PIPE_SIZE.height()) // 2)
+        self.position = QPoint((pipe_widget_size_.width() - cf.SOLID_PIPE_SIZE.width()) // 2,
+                               (pipe_widget_size_.height() - cf.SOLID_PIPE_SIZE.height()) // 2)
 
         self.inner_position = self.position + cf.RELATIVE_DASH_PIPE_POSITION
 
@@ -1687,7 +1687,7 @@ class PipeWidget(QWidget):
         self.paint_resources = PipePainterResources()
 
     def paintEvent(self, event_) -> None:
-        painter = PipePainter(self.pipe, self.paint_resources, self)
+        painter = PipePainter(self.pipe, self.paint_resources, self.size(), self)
         painter.draw_all()
 
 
@@ -1899,11 +1899,15 @@ class CrackSettingsDialog(QDialog):
 
         self.setLayout(core_layout)
 
-    def add_crack_action(self):
-        self.cracks_list_widget.add_widget(ChangerPipeCrackWidget(self.cracks_list_widget, self.pipe.length))
+    def __add_crack(self, side_: str = cf.UPPER_SIDE, depth_: int = 0, position_m_: float = 0) -> None:
+        self.cracks_list_widget.add_widget(ChangerPipeCrackWidget(self.cracks_list_widget, self.pipe.length,
+                                                                  side_, depth_, position_m_))
         self.update()
 
-    def accept_action(self):
+    def add_crack_action(self) -> None:
+        self.__add_crack()
+
+    def accept_action(self) -> None:
         self.pipe.cracks.clear()
         for crack in self.cracks_list_widget.widget_list:
             self.pipe.add_crack(crack.side, crack.depth, crack.position_m)
@@ -1918,8 +1922,9 @@ class CrackSettingsDialog(QDialog):
         self.close()
 
     def run(self):
-        for crack_changer in self.cracks_list_widget.widget_list:
-            crack_changer.pipe_length = self.pipe.length
+        self.cracks_list_widget.remove_all()
+        for crack in self.pipe.cracks:
+            self.__add_crack(crack.side, crack.depth, crack.position_m)
         self.exec()
 
 
@@ -1939,6 +1944,8 @@ class FrequencyResponseGraphWindowWidget(AbstractGraphWindowWidget):
 
     def __button_init(self) -> None:
         self.crack_button.clicked.connect(self.run_crack_dialog)
+        self.crack_button.setMaximumWidth(200)
+        self.crack_button.setMinimumHeight(60)
 
     def __all_widgets_to_layout(self) -> None:
         btn_layout = QVBoxLayout()

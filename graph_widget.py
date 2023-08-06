@@ -229,7 +229,7 @@ class FrequencyResponseGraphWidget(AbstractQtGraphWidget):
                 self.legend.addItem(self.lines[c], self.data_frames[key][i].name)
                 c += 1
                 color_i += 1
-            break
+            # break
 
 
 class AmplitudeTimeGraphWidget(AbstractQtGraphWidget):
@@ -300,7 +300,8 @@ class MplWidget(QWidget):
             data_list = [0] * (cf.DEFAULT_SENSOR_AMOUNT + 1)
             for dataframe in data_frame_dict_[section_name]:
                 if not dataframe.is_correct_read() or not dataframe.active or \
-                        len(dataframe.data['ry' if is_relative_ else 'y']) <= index_:
+                        len(dataframe.data['ry' if is_relative_ else 'y']) <= index_ and \
+                        int(dataframe.name) < cf.DEFAULT_SENSOR_AMOUNT + 1:
                     is_active = False
                     continue
                 data_list[int(dataframe.name)] = dataframe.data['ry' if is_relative_ else 'y'][index_]
