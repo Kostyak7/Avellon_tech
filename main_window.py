@@ -814,6 +814,7 @@ class BoreholeWindowWidget(QWidget):
         self.windrose_window_widget = WindRoseGraphWindowWidget(self)
 
         menu_bar = QMenuBar()
+        menu_bar.setNativeMenuBar(False)
         file_menu = menu_bar.addMenu("Скважина")
 
         self.plot_bar_action = menu_bar.addAction("&▷ Построить", "Ctrl+p")
