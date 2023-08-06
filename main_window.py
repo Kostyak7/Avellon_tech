@@ -6,7 +6,7 @@ from time import gmtime, strftime
 from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QCheckBox, \
     QVBoxLayout, QHBoxLayout, QPushButton, QWidget, QMessageBox, QFormLayout,\
     QTableWidget, QTableWidgetItem, QLabel, QSlider, QDialog, QLineEdit, QComboBox, \
-    QLayout
+    QLayout, QMenuBar
 from PySide6.QtGui import QScreen, QIcon, QPixmap, QIntValidator, QDoubleValidator, QPainter, QColor, QPen
 from PySide6.QtCore import Qt,  QPoint, QSize, QRect, QLine
 from PySide6.QtWidgets import QAbstractItemView
@@ -813,7 +813,7 @@ class BoreholeWindowWidget(QWidget):
         self.amplitude_window_widget = AmplitudeTimeGraphWindowWidget(self)
         self.windrose_window_widget = WindRoseGraphWindowWidget(self)
 
-        menu_bar = self.main_window.menuBar()
+        menu_bar = QMenuBar(self.main_window)
         file_menu = menu_bar.addMenu("Скважина")
 
         self.plot_bar_action = menu_bar.addAction("&▷ Построить", "Ctrl+p")
@@ -822,6 +822,7 @@ class BoreholeWindowWidget(QWidget):
         self.sections_bar_action = file_menu.addAction("&Настроить секции", "Ctrl+a")
         self.download_bar_action = file_menu.addAction("&Сохранить", "Ctrl+s")
         self.download_as_bar_action = file_menu.addAction("&Сохранить как", "Ctrl+Shift+s")
+        self.main_window.setMenuBar(menu_bar)
 
         self.__all_widgets_to_layout()
         self.borehole_menu_action()
