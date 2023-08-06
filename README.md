@@ -6,6 +6,8 @@
 
 Минимальнаня необходимая версия - `python 3.8`
 
+![image info](https://github.com/Kostyak7/Avellon_tech/blob/main/resource/img/appbat.png)
+
 Пока самые легкие установка и запуск проекта реализованы только для Windows.
 Необходимо скачать данный проект, а после из "Проводника" запустить `app.bat`.
 В первый раз установка может занять некоторое время. В последствии запускать
@@ -58,6 +60,8 @@ python3 main.py
 * Построение Розы ветров по датчикам
 
 ![image info](https://github.com/Kostyak7/Avellon_tech/blob/main/resource/img/main_menu.png)
+
+Скачать тестовые данные можно по [ссылке](https://drive.google.com/file/d/1j_6-RZMyNiTh0wSIMSseCACk957Fua5j/view?usp=sharing).
 
 Чтобы построить любой график необходимо загруить файлы и в окне желаемого графика нажать `▷ Построить`. 
 
