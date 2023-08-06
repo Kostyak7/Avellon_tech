@@ -821,6 +821,7 @@ class BoreholeWindowWidget(QWidget):
         self.help_bar_action = menu_bar.addAction("&Справка", "Ctrl+i")
         self.back_menu_bar_action = menu_bar.addAction("&Назад", "Shift+Esc")
         self.sections_bar_action = file_menu.addAction("&Настроить секции", "Ctrl+a")
+        self.sections_bar_action.triggered.connect(self.set_sections_action)
         self.download_bar_action = file_menu.addAction("&Сохранить", "Ctrl+s")
         self.download_as_bar_action = file_menu.addAction("&Сохранить как", "Ctrl+Shift+s")
         self.main_window.setMenuBar(menu_bar)
@@ -873,6 +874,9 @@ class BoreholeWindowWidget(QWidget):
         pass
         self.__deactivate_all()
         self.windrose_window_widget.activate()
+
+    def set_sections_action(self) -> None:
+        self.set_borehole_action()
 
 
 class BoreHoleMenuWidget(AbstractWindowWidget):
@@ -1402,7 +1406,6 @@ class AbstractGraphWindowWidget(AbstractWindowWidget):
         self.borehole_window.plot_bar_action.triggered.connect(self.plot_graph_action)
         self.borehole_window.help_bar_action.triggered.connect(self.help_window_action)
         self.borehole_window.back_menu_bar_action.triggered.connect(self.back_borehole_menu_action)
-        self.borehole_window.sections_bar_action.triggered.connect(self.set_sections_action)
         self.borehole_window.download_bar_action.setEnabled(False)
         self.borehole_window.download_bar_action.triggered.connect(self.save_data_by_default_action)
         self.borehole_window.download_as_bar_action.setEnabled(False)
@@ -1425,9 +1428,6 @@ class AbstractGraphWindowWidget(AbstractWindowWidget):
     def back_borehole_menu_action(self) -> None:
         self.activate(False)
         self.borehole_window.borehole_menu_action()
-
-    def set_sections_action(self) -> None:
-        self.borehole_window.set_borehole_action()
 
     def save_data_by_default_action(self) -> None:
         filename = strftime(cf.DEFAULT_FORMAT_OF_FILENAME, gmtime()) + '.' + cf.TYPES_OF_SAVING_FILE[0]
