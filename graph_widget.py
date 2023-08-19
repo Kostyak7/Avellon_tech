@@ -276,15 +276,16 @@ class MplCanvas(FigureCanvasQTAgg):
         FigureCanvasQTAgg.setSizePolicy(self, QSizePolicy.Expanding, QSizePolicy.Expanding)
         FigureCanvasQTAgg.updateGeometry(self)
 
-    def axes_init(self) -> None:
+    def axes_init(self, top_y_lim_: int = 1) -> None:
         self.ax.set_title("Label", va='bottom')
         angle_and_name_list = self.sensor_name_list.copy()
         for i in range(len(angle_and_name_list)):
             angle_and_name_list[i] = str(45 * i) + '° ' + angle_and_name_list[i]
         self.ax.set_xticklabels(angle_and_name_list)
+        self.ax.set_ylim(0, top_y_lim_)
 
 
-class MplWidget(QWidget):
+class WindRoseGraphWidget(QWidget):
     def __init__(self, parent=None):
         QWidget.__init__(self, parent)
         self.canvas = MplCanvas()
@@ -295,6 +296,7 @@ class MplWidget(QWidget):
         self.theta = np.array([0, 90, 180, 270, 360]) / 180 * np.pi
 
     def set_data(self, data_frame_dict_: dict, index_: int = 0, is_relative_: bool = False):
+        top_y_lim = float('-inf')
         for section_name in data_frame_dict_.keys():
             is_active = True
             data_list = [0] * (cf.DEFAULT_SENSOR_AMOUNT + 1)
@@ -304,10 +306,13 @@ class MplWidget(QWidget):
                         int(dataframe.name) < cf.DEFAULT_SENSOR_AMOUNT + 1:
                     is_active = False
                     continue
+                if dataframe.max() > top_y_lim:
+                    top_y_lim = dataframe.max()
                 data_list[int(dataframe.name)] = dataframe.data['ry' if is_relative_ else 'y'][index_]
             data_list[-1] = data_list[0]
             if is_active:
                 self.canvas.ax.plot(self.theta, data_list, label=section_name)
+        self.canvas.ax.set_ylim(0, 1 if is_relative_ else top_y_lim)
         self.canvas.ax.legend()
         self.canvas.draw()
 

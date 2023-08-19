@@ -11,7 +11,7 @@ from PySide6.QtGui import QScreen, QIcon, QPixmap, QIntValidator, QDoubleValidat
 from PySide6.QtCore import Qt,  QPoint, QSize, QRect, QLine
 from PySide6.QtWidgets import QAbstractItemView
 from graph_widget import XYDataFrame, OscilloscopeGraphWidget, AmplitudeTimeGraphWidget,\
-    FrequencyResponseGraphWidget, MplWidget,  \
+    FrequencyResponseGraphWidget, WindRoseGraphWidget,  \
     MaxesDataFrame
 from third_party import AbstractFunctor, \
     get_num_file_by_default, SimpleItemListWidget, select_path_to_files, \
@@ -892,11 +892,11 @@ class BoreHoleMenuWidget(AbstractWindowWidget):
         self.button_list.add_item("Построить осциллограммы", action=self.borehole_window.plot_oscilloscope_action)
         self.button_list.add_item("Построить частотную характеристику",
                                   action=self.borehole_window.plot_frequency_resp_action)
+        self.button_list.add_item("Построить розу ветров", action=self.borehole_window.plot_wind_rose_action)
         self.button_list.add_item("Построить зависимости амплитуды во времени",
                                   action=self.borehole_window.plot_amplitude_time_action)
         self.button_list.add_item("Построить глубинную характеристику",
                                   action=self.borehole_window.plot_depth_response_action)
-        self.button_list.add_item("Построить розу ветров", action=self.borehole_window.plot_wind_rose_action)
 
         self.button_list.add_item("Назад", action=self.quit_action, shortcut="Shift+Esc")
 
@@ -2020,7 +2020,7 @@ class AmplitudeTimeGraphWindowWidget(AbstractGraphWindowWidget):
 class WindRoseGraphWindowWidget(AbstractGraphWindowWidget):
     def __init__(self, borehole_window_: BoreholeWindowWidget):
         super().__init__(borehole_window_)
-        self.plot_widget = MplWidget(self)
+        self.plot_widget = WindRoseGraphWidget(self)
         self.checkbox_list_widget = CheckBoxList(self)
         self.checkbox_list_widget.setMaximumSize(300, 300)
         self.checkbox_list_widget.add_checkbox('Абсолютное значение',

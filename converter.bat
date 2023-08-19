@@ -12,6 +12,6 @@ call init.bat init
 
 :run
 call venv\Scripts\activate
-call python main.py
+call python converter.py
 
 :end
