@@ -17,6 +17,7 @@ from third_party import AbstractFunctor, \
     get_num_file_by_default, SimpleItemListWidget, select_path_to_files, \
     select_path_to_dir, select_path_to_one_file, ListWidget, AbstractWindowWidget, \
     MyCheckBox
+from converter import ConverterDialog
 import config as cf
 
 
@@ -574,8 +575,9 @@ class Section:
         for step in self.step_list:
             step_df_list = step.get_sensor_dataframe_list()
             for dataframe in step_df_list:
-                if len(dataframe.data['y']) == 21:
-                    dataframes_list.append(dataframe)
+                # if len(dataframe.data['y']) == 21:
+                #     dataframes_list.append(dataframe)
+                dataframes_list.append(dataframe)
         return dataframes_list
 
     def get_sensor_dataframe_list(self) -> list:
@@ -858,12 +860,10 @@ class BoreholeWindowWidget(QWidget):
         self.oscilloscope_window_widget.activate()
 
     def plot_frequency_resp_action(self) -> None:
-        pass
         self.__deactivate_all()
         self.frequency_window_widget.activate()
 
     def plot_amplitude_time_action(self) -> None:
-        pass
         self.__deactivate_all()
         self.amplitude_window_widget.activate()
 
@@ -871,7 +871,6 @@ class BoreholeWindowWidget(QWidget):
         pass
 
     def plot_wind_rose_action(self) -> None:
-        pass
         self.__deactivate_all()
         self.windrose_window_widget.activate()
 
@@ -886,6 +885,7 @@ class BoreHoleMenuWidget(AbstractWindowWidget):
         self.name = name_
         self.label = QLabel("Скважина: " + self.name, self)
         self.__label_init()
+        self.converter_dialog = ConverterDialog(self)
 
         self.button_list = SimpleItemListWidget(ButtonWidget, self)
         self.button_list.add_item("Настроить Скважину", action=self.borehole_window.set_borehole_action)
@@ -897,7 +897,7 @@ class BoreHoleMenuWidget(AbstractWindowWidget):
                                   action=self.borehole_window.plot_amplitude_time_action)
         self.button_list.add_item("Построить глубинную характеристику",
                                   action=self.borehole_window.plot_depth_response_action)
-
+        self.button_list.add_item("Конвертер", action=self.run_converter_action)
         self.button_list.add_item("Назад", action=self.quit_action, shortcut="Shift+Esc")
 
         self.__all_widgets_to_layout()
@@ -922,9 +922,11 @@ class BoreHoleMenuWidget(AbstractWindowWidget):
         core_layout.addStretch()
         self.setLayout(core_layout)
 
+    def run_converter_action(self) -> None:
+        self.converter_dialog.run()
+
     def quit_action(self) -> None:
         self.borehole_window.main_window.app.exit()
-        # TODO save the project
         self.borehole_window.borehole.save_info_to_file()
 
 
@@ -996,6 +998,7 @@ class BoreHoleDialog(QDialog):
 
     def accept_action(self) -> None:
         self.save_all_sections(self.borehole.up_path)
+
         print('______________________________')
         print("Widget")
         for section in self.section_list_widget.widget_list:
@@ -1005,9 +1008,8 @@ class BoreHoleDialog(QDialog):
                 for file in step.file_list.widget_list:
                     print('\t\tf\t', file.path)
 
-        # time.sleep(10)
-
         self.borehole.correlate_data()
+
         print('______________________________')
         print("OUT:", self.borehole.path())
         for section in self.borehole.section_list:
@@ -1022,7 +1024,6 @@ class BoreHoleDialog(QDialog):
                                     for file_w in step_w.file_list.widget_list:
                                         if file.name == os.path.basename(file_w.path):
                                             file.select(file_w.is_selected())
-                                            ifs = True
                                             break
                                 break
                     break

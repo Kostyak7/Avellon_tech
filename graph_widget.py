@@ -208,7 +208,7 @@ class FrequencyResponseGraphWidget(AbstractQtGraphWidget):
         self.setLabel('bottom', 'f, кГц')
 
     def data_x_init(self) -> None:
-        self.dict_data_x = {'0': MaxesDataFrame.get_data_x(21, 4, 2)}
+        self.dict_data_x = {21: MaxesDataFrame.get_data_x(21, 4, 2)}
 
     def graph_init(self) -> None:
         self.legend.clear()
@@ -219,12 +219,15 @@ class FrequencyResponseGraphWidget(AbstractQtGraphWidget):
             for i in range(len(self.data_frames[key])):
                 if color_i >= len(cf.COLOR_NAMES):
                     color_i = 0
+                len_data = len(self.data_frames[key][i].data["y"])
+                if len_data not in self.dict_data_x:
+                    self.dict_data_x[len_data] = MaxesDataFrame.get_data_x(len_data, 4, 2)
                 if c >= len(self.lines):
-                    self.lines.append(self.plot(self.dict_data_x['0']['x'],
+                    self.lines.append(self.plot(self.dict_data_x[len_data]['x'],
                                                 self.data_frames[key][i].data["y"],
                                                 pen=mkPen(cf.COLOR_NAMES[color_i])))
                 elif self.data_frames[key][i].active:
-                    self.lines[c].setData(self.dict_data_x['0']['x'],
+                    self.lines[c].setData(self.dict_data_x[len_data]['x'],
                                           self.data_frames[key][i].data["y"])
                 self.legend.addItem(self.lines[c], self.data_frames[key][i].name)
                 c += 1

@@ -2,9 +2,22 @@ import os
 import sys
 import pathlib
 from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, \
-    QVBoxLayout, QPushButton, QWidget, QFormLayout, QLineEdit, QMessageBox
+    QVBoxLayout, QPushButton, QWidget, QFormLayout, QLineEdit, QMessageBox, QDialog
 from PySide6.QtGui import QIntValidator
 from PySide6.QtCore import Qt
+import config as cf
+
+
+def try_create_dir(parent_path_: str, name_: str, num_: int = -1) -> str:
+    tmp_name = name_
+    if num_ > -1:
+        tmp_name += f' ({num_})'
+    for filename in pathlib.Path(parent_path_).glob('*'):
+        if os.path.basename(filename) == tmp_name:
+            return try_create_dir(parent_path_, name_, num_ + 1)
+    tmp_name = parent_path_ + '/' + tmp_name
+    os.mkdir(tmp_name)
+    return tmp_name
 
 
 def is_float(s_: str) -> bool:
@@ -16,11 +29,11 @@ def is_float(s_: str) -> bool:
 
 
 class FileConverter:
-    def __init__(self, filename_: str, sensor_num_: int, crash_deep_: int, measurement_num_: int):
+    def __init__(self, filename_: str, save_dir_: str, sensor_num_: int, crash_deep_: int, measurement_num_: int):
         self.old_filename = filename_
         self.old_basename = os.path.basename(self.old_filename)
         self.new_basename = f'DEFAULT_{self.get_sensor_num(sensor_num_)}_{crash_deep_}mm_{self.get_measurement_num(measurement_num_)}.csv'
-        self.new_filename = str(pathlib.Path(self.old_filename).parent / self.new_basename)
+        self.new_filename = save_dir_ + '/' + self.new_basename
 
     def get_measurement_num(self, measurement_num_: int) -> str:
         return chr(ord('A') + measurement_num_ - 10) if measurement_num_ > 9 else str(measurement_num_)
@@ -75,34 +88,29 @@ class FileDirector:
         self.sensor_num = sensor_num_
         self.crash_deep = crash_deep_
         self.start_measurement_num = start_measurement_num_
+        self.save_dir = try_create_dir(str(pathlib.Path(filename_list_[0]).parent), 'Converted data')
 
     def convert(self) -> bool:
         measurement_num = self.start_measurement_num
         for filename in self.filename_list:
             if measurement_num > 36:
                 return True
-            file_converter = FileConverter(filename, self.sensor_num, self.crash_deep, measurement_num)
+            file_converter = FileConverter(filename, self.save_dir, self.sensor_num, self.crash_deep, measurement_num)
             if not file_converter.convert():
                 return False
             measurement_num += 1
         return True
 
 
-class MainWindow(QMainWindow):
-    def __init__(self, app_: QApplication):
-        super().__init__()
-        self.app = app_
-        self.setWindowTitle('Data Converter')
-        self.setCentralWidget(MenuWidget(self))
-
-
-class MenuWidget(QWidget):
-    def __init__(self, main_window_):
-        super().__init__(main_window_)
-        self.main_window = main_window_
+class ConverterDialog(QDialog):
+    def __init__(self, parent_: QWidget = None):
+        super().__init__(parent_)
         self.sensor_num = 0
         self.crash_deep = 0
         self.start_measurement_num = 0
+
+        self.setWindowTitle('Data Converter')
+        self.setWindowModality(Qt.ApplicationModal)
 
         self.sensor_editor = QLineEdit(self)
         self.crash_deep_editor = QLineEdit(self)
@@ -176,7 +184,10 @@ class MenuWidget(QWidget):
         self.start_measurement_num = 0 if len(text_) < 1 else int(float(text_))
 
     def files_action(self) -> None:
-        filename_list, useless_filter = QFileDialog.getOpenFileNames(self, dir=str(pathlib.Path().resolve()), filter="CSV files (*.csv)")
+        filename_list, useless_filter = QFileDialog.getOpenFileNames(self, dir=str(pathlib.Path().resolve()),
+                                                                     filter=cf.FILE_DIALOG_CSV_FILTER)
+        if len(filename_list) < 1:
+            return 
         print(filename_list)
         print(self.sensor_num, self.crash_deep, self.start_measurement_num)
 
@@ -186,16 +197,8 @@ class MenuWidget(QWidget):
         else:
             QMessageBox.warning(self, "Convert Warning", "Ошибка конвертирования", QMessageBox.Ok)
 
+    def run(self) -> None:
+        self.exec()
+
     def exit_action(self) -> None:
-        self.main_window.app.exit()
-
-
-def main() -> None:
-    app = QApplication(sys.argv)
-    window = MainWindow(app)
-    window.show()
-    app.exec()
-
-
-if __name__ == '__main__':
-    main()
+        self.close()
