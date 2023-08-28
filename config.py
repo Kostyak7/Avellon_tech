@@ -61,13 +61,14 @@ PIPE_CRACK_POSITION_UNIT = "м"
 
 CSV_FILE_HEADER_SIZE = 6
 CSV_FILE_HEADER_CONTENT = {
-    "Time Base": IntFormatting('μs'),
+    "Time Base": IntFormatting('μs', 'Ojs'),
     "Sampling Rate": FloatFormatting('MSa/s'),
-    "Amplitude":  FloatFormatting('V'),
+    "Amplitude":  StrFormatting(''),
     "Amplitude resolution": FloatFormatting('mV'),
     "Data Uint": StrFormatting(''),
     "Data points": IntFormatting(''),
 }
+# FloatFormatting('V', 'mV'),
 
 COLOR_NAMES = ['red', 'blue', 'green', 'orange', 'burlywood',
                'darkcyan', 'darkgoldenrod', 'pink',

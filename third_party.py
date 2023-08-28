@@ -14,9 +14,10 @@ class MyWarning(Warning):
 
 
 class AbstractFormatting:
-    def __init__(self, unit_: str = ''):
+    def __init__(self, unit_: str = '', ad_unit_: str = ''):
         self.content = ''
         self.unit = unit_
+        self.ad_unit = ad_unit_
         self.unit_index = -1
 
     def unit_separator(self, content_: str) -> None:
@@ -24,6 +25,8 @@ class AbstractFormatting:
             self.unit_index = len(content_)
             return
         self.unit_index = content_.find(self.unit)
+        if self.unit_index == -1:
+            self.unit_index = content_.find(self.ad_unit)
         if self.unit_index == -1:
             raise MyWarning('', '')
 
