@@ -61,12 +61,12 @@ PIPE_CRACK_POSITION_UNIT = "м"
 
 CSV_FILE_HEADER_SIZE = 6
 CSV_FILE_HEADER_CONTENT = {
-    "Time Base": IntFormatting('μs', 'Ojs'),
-    "Sampling Rate": FloatFormatting('MSa/s'),
-    "Amplitude":  StrFormatting(''),
-    "Amplitude resolution": FloatFormatting('mV'),
-    "Data Uint": StrFormatting(''),
-    "Data points": IntFormatting(''),
+    "Time Base": IntFormatting(['Ojs', 'μs']),
+    "Sampling Rate": FloatFormatting(['MSa/s']),
+    "Amplitude":  FloatFormatting(['mV', 'V']),
+    "Amplitude resolution": FloatFormatting(['mV', 'V']),
+    "Data Uint": StrFormatting([]),
+    "Data points": IntFormatting([]),
 }
 # FloatFormatting('V', 'mV'),
 
