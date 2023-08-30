@@ -887,6 +887,10 @@ class BoreHoleMenuWidget(AbstractWindowWidget):
         self.__label_init()
         self.converter_dialog = ConverterDialog(self)
 
+        self.logo_label = QLabel(self)
+        pixmap = QPixmap(cf.MAIN_MENU_LOGO_PATH)
+        self.logo_label.setPixmap(pixmap)
+
         self.button_list = SimpleItemListWidget(ButtonWidget, self)
         self.button_list.add_item("Настроить Скважину", action=self.borehole_window.set_borehole_action)
         self.button_list.add_item("Построить осциллограммы", action=self.borehole_window.plot_oscilloscope_action)
@@ -912,6 +916,7 @@ class BoreHoleMenuWidget(AbstractWindowWidget):
     def __all_widgets_to_layout(self) -> None:
         center_layout = QVBoxLayout()
         center_layout.addStretch()
+        center_layout.addWidget(self.logo_label)
         center_layout.addWidget(self.label)
         center_layout.addWidget(self.button_list)
         center_layout.addStretch()

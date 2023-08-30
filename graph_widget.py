@@ -76,11 +76,10 @@ class XYDataFrame(AbstractDataFrame):
                 raise MyWarning(cf.INCORRECT_FILE_CONTENT_WARNING_TITLE,
                                 f"Выбранный файл: - {self.filename} - имеет неправильное наполнение в хедере!")
             header_name = self.data.iloc[i][0][:dot_index]
-            # res[header_name] = self.data.iloc[i][0][dot_index + 1:]
-            print("header_name", header_name)
             res[header_name] = cf.CSV_FILE_HEADER_CONTENT[header_name] \
                 .get(self.data.iloc[i][0][dot_index + 1:])
-            print("res ", res[header_name])
+            if header_name == "Time Base":
+                res[header_name] *= 1 if self.data.iloc[i][0][dot_index + 1:].find('mV') else 10**-3
         return res
 
     def data_init(self) -> None:
