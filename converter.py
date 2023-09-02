@@ -44,8 +44,8 @@ class FileConverter:
     def convert(self) -> bool:
         if not pathlib.Path(self.old_filename).is_file():
             return False
-        old_file = open(self.old_filename, 'r')
-        new_file = open(self.new_filename, 'w')
+        old_file = open(self.old_filename, 'r', encoding='UTF-8')
+        new_file = open(self.new_filename, 'w', encoding='UTF-8')
         if not self.__header_line_convert(old_file, new_file, 'Time Base') or \
                 not self.__header_line_convert(old_file, new_file, 'Sampling Rate') or \
                 not self.__header_line_convert(old_file, new_file, 'Amplitude') or \

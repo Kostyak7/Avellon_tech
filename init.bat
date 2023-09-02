@@ -19,7 +19,6 @@ goto end
 :init
 python -m venv venv
 call venv\Scripts\activate
-call pip install --upgrade pip
 call pip install -r requirements.txt
 call deactivate
 IF not EXIST "projects" (

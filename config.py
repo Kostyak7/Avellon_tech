@@ -1,5 +1,5 @@
 from PySide6.QtCore import QSize, QPoint
-from third_party import IntFormatting, FloatFormatting, StrFormatting
+from formatting import IntFormatting, FloatFormatting, StrFormatting
 
 MAIN_WINDOW_TITLE = "Avellon tech"
 MAIN_WINDOW_ICON_PATH = ""
@@ -7,11 +7,14 @@ MAIN_WINDOW_MINIMUM_SIZE = QSize(800, 450)
 ICON_WINDOW_PATH = "resource/img/favicon.ico"
 MAIN_MENU_LOGO_PATH = "resource/img/logo.png"
 
+CACHE_DIR_PATH = '__avellon_cache__'
+CACHE_FILE_INFO_PATH = CACHE_DIR_PATH + '/info.txt'
+
 DEFAULT_BUTTON_SIZE = QSize(200, 50)
 SEQUENCE_NUMBER_SHORTCUT_MODE = "SEQNUM"
 NO_SHORTCUT_MODE = "NO"
 
-DEFAULT_PROJECT_NAME = "Avellon_Project_"
+DEFAULT_PROJECT_NAME = "Avellon_Project"
 
 BOREHOLE_INFO_SAVE_FILENAME = "info.txt"
 DEFAULT_PROJECT_FOLDER = 'projects'

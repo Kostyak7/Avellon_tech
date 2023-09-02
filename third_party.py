@@ -2,8 +2,9 @@ import os
 import pathlib
 from uuid import uuid4
 from PySide6.QtWidgets import QWidget, QCheckBox, QVBoxLayout, QHBoxLayout, QLineEdit, \
-    QPushButton, QFileDialog, QListWidget, QListWidgetItem
+    QPushButton, QFileDialog, QListWidget, QListWidgetItem, QLabel
 from PySide6.QtCore import Qt, QUrl, QPoint, QSize, QRect
+import config as cf
 
 
 class MyWarning(Warning):
@@ -13,51 +14,9 @@ class MyWarning(Warning):
         super().__init__(self.message)
 
 
-class AbstractFormatting:
-    def __init__(self, unit_list_: list):
-        self.content = ''
-        # self.unit = None
-        self.unit_list = unit_list_
-        self.unit_index = -1
-
-    def unit_separator(self, content_: str) -> str:
-        if len(self.unit_list) == 0:
-            self.unit_index = len(content_)
-            return None
-        self.unit_index = -1
-        for unit in self.unit_list:
-            if len(unit) == 0:
-                self.unit_index = len(content_)
-                return None
-            self.unit_index = content_.find(unit)
-            if self.unit_index != -1:
-                return unit
-        if self.unit_index == -1:
-            raise MyWarning('', '')
-        return None
-
-    def get(self, content_: str): ...
-
-
-class IntFormatting(AbstractFormatting):
-    def get(self, content_: str) -> int:
-        self.unit_separator(content_)
-        return int(content_[:self.unit_index])
-
-
-class FloatFormatting(AbstractFormatting):
-    def get(self, content_: str) -> float:
-        self.unit_separator(content_)
-        return float(content_[:self.unit_index])
-
-
-class StrFormatting(AbstractFormatting):
-    def get(self, content_: str) -> str:
-        self.unit_separator(content_)
-        return str(content_[:self.unit_index])
-
-
 def get_num_file_by_default(base_name_: str, sensor_amount_: int) -> list:
+    if len(base_name_) < 19:
+        return [-1, -1]
     measurement_num = -1
     if base_name_[-5].isalpha():
         measurement_num = ord(base_name_[-5].lower()) - ord('a') + 10
@@ -223,6 +182,10 @@ class AbstractListWidgetItem(QWidget):
         self.id = None
 
 
+def empty_action(*args, **kwargs) -> None:
+    pass
+
+
 def select_path_to_files(filter_str_: str, parent_: QWidget = None, **kwargs) -> list:
     file_dialog = QFileDialog(parent_)
     file_dialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
@@ -238,3 +201,42 @@ def select_path_to_one_file(filter_str_: str, parent_: QWidget = None, **kwargs)
     if 'dir' in kwargs:
         return QFileDialog.getOpenFileName(parent_, 'Select File', dir=kwargs['dir'], filter=filter_str_)[0]
     return QFileDialog.getOpenFileName(parent_, 'Select File', filter=filter_str_)[0]
+
+
+class ButtonWidget(QPushButton):
+    def __init__(self, name_: str, parent_: QWidget = None, *args, **kwargs):
+        super().__init__(name_, parent_)
+        self.name = name_
+        self.id = uuid4()
+
+        self.recreate(self.name, **kwargs)
+
+    def __eq__(self, other_) -> bool:
+        return self.id == other_.id
+
+    def __set_visible(self, is_show_: bool = True) -> None:
+        self.setVisible(is_show_)
+
+    def __word_wrap(self) -> None:
+        label = QLabel(self.name, self)
+        self.setText('')
+        label.setWordWrap(True)
+        layout = QHBoxLayout(self)
+        layout.addWidget(label, 0, Qt.AlignCenter)
+
+    def __set_shortcut(self, shortcut_: str = cf.NO_SHORTCUT_MODE) -> None:
+        if shortcut_ != cf.NO_SHORTCUT_MODE:
+            self.setShortcut(shortcut_)
+
+    def recreate(self, name_: str, *args, **kwargs) -> None:
+        self.name = name_
+        self.setText(name_)
+        self.clicked.connect(kwargs['action'])
+
+        if 'is_word_wrap' in kwargs and kwargs['is_word_wrap']:
+            self.__word_wrap()
+
+        if 'shortcut' in kwargs:
+            self.__set_shortcut(kwargs['shortcut'])
+
+        self.__set_visible('is_show' in kwargs and kwargs['is_show'] or 'is_show' not in kwargs)
