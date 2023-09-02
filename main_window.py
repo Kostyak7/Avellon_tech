@@ -158,8 +158,8 @@ class MainMenuWidget(QWidget):
         self.main_window.run_borehole_menu(project_path)
     
     def update_action(self) -> None:
-        if pathlib.Path('update.bat').is_file():
-            os.system('update.bat')
+        if pathlib.Path('app.bat').is_file():
+            os.system('start app.bat update')
             self.main_window.exit()
 
     def quit_action(self) -> None:
