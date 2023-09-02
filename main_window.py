@@ -122,8 +122,9 @@ class MainMenuWidget(QWidget):
         self.button_list.add_item("Открыть проект", action=self.open_project_action)
         self.button_list.add_item("Выход", action=self.quit_action, shortcut="Shift+Esc")
 
-        update_button = QPushButton('Update', self, Qt.AlignLeft)
-        update_button.clicked.connect()
+        self.update_button = QPushButton('Update', self, Qt.AlignLeft)
+        self.update_button.clicked.connect(self.update_action)
+        self.update_button.setMaximumWidth(160)
 
         self.__all_widgets_to_layout()
 
@@ -141,6 +142,7 @@ class MainMenuWidget(QWidget):
         core_layout.addStretch()
         core_layout.addLayout(center_layout)
         core_layout.addStretch()
+        core_layout.addWidget(self.update_button, Qt.AlignLeft | Qt.AlignBottom)
         self.setLayout(core_layout)
 
     def create_project_action(self) -> None:
@@ -158,7 +160,7 @@ class MainMenuWidget(QWidget):
     def update_action(self) -> None:
         if pathlib.Path('update.bat').is_file():
             # os.system('update.bat')
-            pass
+            self.main_window.exit()
 
     def quit_action(self) -> None:
         self.main_window.exit()
