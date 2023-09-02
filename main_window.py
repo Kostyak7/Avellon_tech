@@ -159,7 +159,7 @@ class MainMenuWidget(QWidget):
     
     def update_action(self) -> None:
         if pathlib.Path('update.bat').is_file():
-            # os.system('update.bat')
+            os.system('update.bat')
             self.main_window.exit()
 
     def quit_action(self) -> None:

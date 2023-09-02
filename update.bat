@@ -1,7 +1,5 @@
 @echo on
 
-call git restore .
-call git pull
-call app.bat init
+call app.bat update
 
 :end
