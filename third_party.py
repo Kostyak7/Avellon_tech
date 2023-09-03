@@ -2,7 +2,7 @@ import os
 import pathlib
 from uuid import uuid4
 from PySide6.QtWidgets import QWidget, QCheckBox, QVBoxLayout, QHBoxLayout, QLineEdit, \
-    QPushButton, QFileDialog, QListWidget, QListWidgetItem, QLabel
+    QPushButton, QFileDialog, QListWidget, QListWidgetItem, QLabel, QDialog, QTextEdit, QTabWidget
 from PySide6.QtCore import Qt, QUrl, QPoint, QSize, QRect
 import config as cf
 
@@ -182,10 +182,6 @@ class AbstractListWidgetItem(QWidget):
         self.id = None
 
 
-def empty_action(*args, **kwargs) -> None:
-    pass
-
-
 def select_path_to_files(filter_str_: str, parent_: QWidget = None, **kwargs) -> list:
     file_dialog = QFileDialog(parent_)
     file_dialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
@@ -240,3 +236,42 @@ class ButtonWidget(QPushButton):
             self.__set_shortcut(kwargs['shortcut'])
 
         self.__set_visible('is_show' in kwargs and kwargs['is_show'] or 'is_show' not in kwargs)
+
+
+class HelpInfoPageWidget(QWidget):
+    def __init__(self, text_: str, parent_: QWidget = None):
+        super().__init__(parent_)
+        self.setMinimumSize(700, 600)
+        self.text_widget = QTextEdit(self)
+        self.text_widget.setText(text_)
+        self.text_widget.setReadOnly(True)
+        self.__all_widgets_to_layout()
+    
+    def __all_widgets_to_layout(self) -> None:
+        core_layout = QVBoxLayout()
+        core_layout.addWidget(self.text_widget)
+        self.setLayout(core_layout)
+
+
+class HelpInfoDialog(QDialog):
+    def __init__(self, parent_: QWidget = None):
+        super().__init__(parent_)
+        self.setWindowTitle('Help information')
+        self.tab_widget = QTabWidget(self)
+        self.tab_widget.addTab(HelpInfoPageWidget(cf.COMMON_HELP_INFO, self), 'Общее')
+        self.tab_widget.addTab(HelpInfoPageWidget(cf.BOREHOLE_HELP_INFO, self), 'Настройка скважины')
+        self.tab_widget.addTab(HelpInfoPageWidget(cf.OSCILLOSCOPE_HELP_INFO, self), 'Осциллограмма')
+        self.tab_widget.addTab(HelpInfoPageWidget(cf.FREQUENCY_HELP_INFO, self), 'Частотная характеристика')
+        self.tab_widget.addTab(HelpInfoPageWidget(cf.WINDROSE_HELP_INFO, self), 'Роза ветров')
+        self.tab_widget.addTab(HelpInfoPageWidget(cf.AMPLITUDE_HELP_INFO, self), 'Амлитудный')
+        self.tab_widget.addTab(HelpInfoPageWidget(cf.DEPTH_HELP_INFO, self), 'Глубинный')
+        self.__all_widgets_to_layout()
+    
+    def __all_widgets_to_layout(self) -> None:
+        core_layout = QVBoxLayout()
+        core_layout.addWidget(self.tab_widget)
+        core_layout.addWidget(self.tab_widget)
+        self.setLayout(core_layout)
+    
+    def run(self) -> None:
+        self.show()

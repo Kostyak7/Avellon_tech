@@ -270,6 +270,39 @@ class AmplitudeTimeGraphWidget(AbstractQtGraphWidget):
                 color_i += 1
 
 
+class DepthResponseGraphWidget(AbstractQtGraphWidget):
+    def __init__(self, data_frames_: dict, parent_: QWidget = None):
+        super().__init__(data_frames_, parent_)
+        self.graph_init()
+        self.setTitle("График соотношения глубины и абсолютной величины")
+        self.setLabel('left', 'Глубина (м)')
+        self.setLabel('bottom', 'Мощность сигнала')
+
+    def data_x_init(self) -> None:
+        # self.dict_data_x = {'0': MaxesDataFrame.get_data_x(21)}
+        pass
+
+    def graph_init(self) -> None:
+        self.legend.clear()
+        if len(self.data_frames.keys()) < 1:
+            return
+        color_i, c = 0, 0
+        for key in self.data_frames.keys():
+            for i in range(len(self.data_frames[key])):
+                if color_i >= len(cf.COLOR_NAMES):
+                    color_i = 0
+                if c >= len(self.lines):
+                    self.lines.append(self.plot(self.dict_data_x[key]['x'],
+                                                self.data_frames[key][i].data["y"],
+                                                pen=mkPen(cf.COLOR_NAMES[color_i])))
+                elif self.data_frames[key][i].active:
+                    self.lines[c].setData(self.dict_data_x[key]['x'],
+                                          self.data_frames[key][i].data["y"])
+                self.legend.addItem(self.lines[c], self.data_frames[key][i].name)
+                c += 1
+                color_i += 1
+
+
 # MATPLOTLIB GRAPH
 class MplCanvas(FigureCanvasQTAgg):
     def __init__(self):
@@ -317,7 +350,7 @@ class WindRoseGraphWidget(QWidget):
             data_list[-1] = data_list[0]
             if is_active:
                 self.canvas.ax.plot(self.theta, data_list, label=section_name)
-        self.canvas.ax.set_ylim(0, 1 if is_relative_ else top_y_lim)
+        self.canvas.ax.set_ylim(0, 1 if is_relative_ or top_y_lim == float('-inf') else top_y_lim)
         self.canvas.ax.legend()
         self.canvas.draw()
 
