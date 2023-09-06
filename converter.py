@@ -1,10 +1,12 @@
 import os
 import sys
 import pathlib
-from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, \
-    QVBoxLayout, QPushButton, QWidget, QFormLayout, QLineEdit, QMessageBox, QDialog
+from PySide6.QtWidgets import QFileDialog, QVBoxLayout, QPushButton, QWidget, \
+    QFormLayout, QLineEdit, QDialog
 from PySide6.QtGui import QIntValidator
 from PySide6.QtCore import Qt
+from third_party import MessageBox
+from loadlabel import loading
 import config as cf
 
 
@@ -142,7 +144,7 @@ class ConverterDialog(QDialog):
         self.measurement_editor.setText(str(self.start_measurement_num))
 
     def __button_init(self) -> None:
-        self.files_button.clicked.connect(self.files_action)
+        self.files_button.clicked.connect(self.files_convertation_action)
         self.exit_button.clicked.connect(self.exit_action)
         self.exit_button.setShortcut("Shift+Esc")
 
@@ -183,19 +185,26 @@ class ConverterDialog(QDialog):
             self.crash_deep_editor.setText(text_)
         self.start_measurement_num = 0 if len(text_) < 1 else int(float(text_))
 
-    def files_action(self) -> None:
+
+    def files_convertation_action(self) -> None:
         filename_list, useless_filter = QFileDialog.getOpenFileNames(self, dir=str(pathlib.Path().resolve()),
                                                                      filter=cf.FILE_DIALOG_CSV_FILTER)
         if len(filename_list) < 1:
             return 
         print(filename_list)
         print(self.sensor_num, self.crash_deep, self.start_measurement_num)
-
-        file_director = FileDirector(filename_list, self.sensor_num, self.crash_deep, self.start_measurement_num)
-        if file_director.convert():
-            QMessageBox.information(self, "Convert Complete", "Конвертирование успешно завершенно", QMessageBox.Ok)
+        self.convertation(filename_list)
+    
+    @loading('result_convertation', True)
+    def convertation(self, filename_list_: list) -> None:
+        file_director = FileDirector(filename_list_, self.sensor_num, self.crash_deep, self.start_measurement_num)
+        return file_director.convert()
+        
+    def result_convertation(self, is_success_: bool) -> None:        
+        if is_success_:
+            MessageBox().information("Convert Complete", "Конвертирование успешно завершенно")
         else:
-            QMessageBox.warning(self, "Convert Warning", "Ошибка конвертирования", QMessageBox.Ok)
+            MessageBox().warning("Convert Warning", "Ошибка конвертирования")
 
     def run(self) -> None:
         self.exec()

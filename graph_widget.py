@@ -2,11 +2,11 @@ import os
 import numpy as np
 import pandas as pd
 from uuid import uuid4
-from PySide6.QtWidgets import QWidget, QMessageBox, QVBoxLayout, QSizePolicy
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 from pyqtgraph import PlotWidget, mkPen
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-from third_party import MyWarning
+from third_party import MyWarning, MessageBox
 import config as cf
 
 
@@ -41,8 +41,7 @@ class XYDataFrame(AbstractDataFrame):
         is_exception = False
 
         if not os.path.exists(self.filename) or not os.path.isfile(self.filename):
-            QMessageBox.warning(self.parent, cf.FILE_NOT_EXIST_WARNING_TITLE,
-                                f"{self.filename} - не существует или не является файлом!", QMessageBox.Ok)
+            MessageBox().warning(cf.FILE_NOT_EXIST_WARNING_TITLE, f"{self.filename} - не существует или не является файлом!")
 
         else:
             self.data = pd.read_csv(self.filename, header=None)
@@ -50,10 +49,10 @@ class XYDataFrame(AbstractDataFrame):
         try:
             self.header = self.header_init()
         except MyWarning as mw:
-            QMessageBox.warning(self.parent, mw.exception_title, mw.message, QMessageBox.Ok)
+            MessageBox().warning(mw.exception_title, mw.message)
             is_exception = True
         except:
-            QMessageBox.warning(self.parent, cf.UNKNOWN_WARNING_TITLE, cf.UNKNOWN_WARNING_MESSAGE, QMessageBox.Ok)
+            MessageBox().warning(cf.UNKNOWN_WARNING_TITLE, cf.UNKNOWN_WARNING_MESSAGE)
             is_exception = True
 
         if is_exception:

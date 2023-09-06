@@ -4,7 +4,7 @@ import shutil
 from uuid import uuid4
 from PySide6.QtWidgets import QWidget, QMessageBox
 from PySide6.QtCore import Qt
-from third_party import get_num_file_by_default
+from third_party import get_num_file_by_default, MessageBox
 from graph_widget import XYDataFrame, MaxesDataFrame
 import config as cf
 
@@ -42,8 +42,7 @@ class DataFile:
 
     def get_xy_dataframe(self) -> XYDataFrame:
         if self.measurement_num == -1 or self.sensor_num == -1:
-            QMessageBox.warning(QWidget(), cf.WRONG_FILENAME_WARNING_TITLE,
-                                f"{self.name} - имеет не соответстующее требованиям название!", QMessageBox.Ok)
+            MessageBox().warning(cf.WRONG_FILENAME_WARNING_TITLE, f"{self.name} - имеет не соответстующее требованиям название!")
             self.max_value = None
             return None
         xy_dataframe = XYDataFrame(self.path())

@@ -4,18 +4,18 @@ import shutil
 from uuid import uuid4
 from time import gmtime, strftime
 from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QCheckBox, \
-    QVBoxLayout, QHBoxLayout, QPushButton, QWidget, QMessageBox, QFormLayout,\
-    QTableWidget, QTableWidgetItem, QLabel, QSlider, QDialog, QLineEdit, QComboBox, \
-    QLayout, QMenuBar
+    QVBoxLayout, QHBoxLayout, QPushButton, QWidget, QFormLayout, QLayout, QMenuBar, \
+    QTableWidget, QTableWidgetItem, QLabel, QSlider, QDialog, QLineEdit, QComboBox
 from PySide6.QtGui import QScreen, QIcon, QPixmap, QIntValidator, QDoubleValidator, QPainter, QColor, QPen
 from PySide6.QtCore import Qt, QPoint, QSize, QRect, QLine
 from PySide6.QtWidgets import QAbstractItemView
 from graph_widget import XYDataFrame, OscilloscopeGraphWidget, AmplitudeTimeGraphWidget,\
     FrequencyResponseGraphWidget, WindRoseGraphWidget, MaxesDataFrame, DepthResponseGraphWidget
-from third_party import AbstractFunctor, HelpInfoDialog, \
-    get_num_file_by_default, SimpleItemListWidget, select_path_to_files, \
+from third_party import AbstractFunctor, HelpInfoDialog, SimpleItemListWidget, \
+    get_num_file_by_default, select_path_to_files, \
     select_path_to_dir, select_path_to_one_file, ListWidget, AbstractWindowWidget, \
-    MyCheckBox, ButtonWidget
+    MyCheckBox, ButtonWidget, MessageBox
+from loadlabel import loading
 from borehole_logic import *
 from converter import ConverterDialog
 import config as cf
@@ -42,20 +42,23 @@ import config as cf
 # DONE 18) git update
 # DONE 18) рестуктурирование окна скважины
 # DONE 19) edit pathedit
-# TODO 20) load dialog
+# DONE 20) load dialog
 # DONE 21) tools for graphs
 # TODO 22) settings of borehole
 # DONE 23) check minimum possible name for borehole and sections
 # DONE 24) Help window for each graph
 # TODO 25) Change oscilloscope graph size
-# TODO 26)
-# TODO 27)
+# TODO 26) Rewrite README
+# TODO 27) close event
+# TODO 28) pyinstaller for .exe
+# TODO 29) 
 
 
 class MainWindow(QMainWindow):
     def __init__(self, app_: QApplication):
         super().__init__()
         self.app = app_
+        mb = MessageBox()
         self.__window_init()
         self.__cache_init()
 
@@ -154,7 +157,7 @@ class MainMenuWidget(QWidget):
         if len(project_path) < 1:
             return
         if not os.path.isdir(project_path):
-            QMessageBox.warning(self, 'Not a dir', f"{project_path} - не является папкой!", QMessageBox.Ok)
+            MessageBox().warning('Not a dir', f"{project_path} - не является папкой!")
             return
         self.main_window.run_borehole_menu(project_path)
     
@@ -246,22 +249,21 @@ class CreateProjectDialog(QDialog):
 
     def accept_action(self) -> None:
         if len(self.project_name) < 1:
-            QMessageBox.warning(self, 'Empty name', "Название проекта не может быть пустым", QMessageBox.Ok)
+            MessageBox().warning('Empty name', "Название проекта не может быть пустым")
             return
         if self.project_name.find(' ') != -1:
-            QMessageBox.warning(self, 'Uncorrect name', "Не корректное имя проекта", QMessageBox.Ok)
+            MessageBox().warning('Uncorrect name', "Не корректное имя проекта")
             return
         path = str(pathlib.Path(self.parent_path) / self.project_name)
         is_exist = os.path.exists(path)
         if is_exist:
             if not os.path.isdir(path):
-                QMessageBox.warning(self, 'Not a dir',
-                                    f"{path} - не является папкой!", QMessageBox.Ok)
+                MessageBox().warning('Not a dir', f"{path} - не является папкой!")
                 return
             if len([f for f in pathlib.Path(path).glob('*')]):
-                QMessageBox.warning(self, cf.NOT_EMPTY_FOLDER_WARNING_TITLE,
+                MessageBox().warning(cf.NOT_EMPTY_FOLDER_WARNING_TITLE,
                                     f"Выбранная папка: - {path} - содержит файлы!"
-                                    f"\nВыберете пустую или не существующую папку", QMessageBox.Ok)
+                                    f"\nВыберете пустую или не существующую папку")
                 return
         else:
             os.mkdir(path)
@@ -351,7 +353,7 @@ class BoreholeMenuWindowWidget(QWidget):
         self.id = uuid4()
         self.name = os.path.basename(path_)
         if len(self.name) < 1:
-            QMessageBox.warning(self, 'Empty name', 'Пустое имя проекта!', QMessageBox.Ok)
+            MessageBox().warning('Empty name', 'Пустое имя проекта!')
             main_window_.run_main_menu()
             return
         self.main_window = main_window_
@@ -544,6 +546,7 @@ class BoreHoleDialog(QDialog):
         for section in self.section_list_widget.widget_list:
             section.save_all(borehole_path)
 
+    @loading('cancel_action')
     def accept_action(self) -> None:
         self.save_all_sections(self.borehole.up_path)
 
@@ -587,7 +590,6 @@ class BoreHoleDialog(QDialog):
                     section.depth = section_w.depth
                     section.length = section_w.length
         print('______________________________')
-        self.close()
 
     def cancel_action(self) -> None:
         self.close()
@@ -1011,6 +1013,8 @@ class AbstractGraphWindowWidget(AbstractWindowWidget):
 
     def replot_for_new_data(self) -> None:
         self.plot_widget.recreate(self.data_frames)
+    
+    def checkbox_activate(self) -> None: ...
 
     def save_data_by_default_action(self) -> None:
         filename = strftime(cf.DEFAULT_FORMAT_OF_FILENAME, gmtime()) + '.' + cf.TYPES_OF_SAVING_FILE[0]
@@ -1112,14 +1116,16 @@ class OscilloscopeGraphWindowWidget(AbstractGraphWindowWidget):
         core_layout.addLayout(table_checkbox_layout)
         core_layout.addWidget(self.plot_widget)
         self.setLayout(core_layout)
-
+    
+    @loading('checkbox_activate')
     def plot_graph_action(self) -> None:
         self.data_frames = self.borehole_window.borehole.get_xy_dataframes_dict()
         if len(self.data_frames) < 1:
             return
         self.table_widget.set_data(self.data_frames, self.borehole_window.main_window.size())
         self.replot_for_new_data()
-
+    
+    def checkbox_activate(self) -> None:
         self.hide_line_dialog.remove_all()
         for key in self.data_frames.keys():
             for dataframe in self.data_frames[key]:
@@ -1537,11 +1543,13 @@ class FrequencyResponseGraphWindowWidget(AbstractGraphWindowWidget):
         self.cracks_dialog.close()
         self.setVisible(is_active_)
 
+    @loading('checkbox_activate')
     def plot_graph_action(self) -> None:
         self.data_frames = self.borehole_window.borehole.get_sensor_21_dataframe_dict()
+    
+    def checkbox_activate(self) -> None:
         if len(self.data_frames.keys()) < 1:
             return
-
         self.hide_line_dialog.remove_all()
         for section_name in self.data_frames.keys():
             for dataframe in self.data_frames[section_name]:
@@ -1568,11 +1576,13 @@ class AmplitudeTimeGraphWindowWidget(AbstractGraphWindowWidget):
         core_layout.addWidget(self.plot_widget)
         self.setLayout(core_layout)
 
+    @loading('checkbox_activate')
     def plot_graph_action(self) -> None:
         self.data_frames = self.borehole_window.borehole.get_step_maxes_dataframe_dict()
+    
+    def checkbox_activate(self) -> None:
         if len(self.data_frames) < 1:
             return
-
         self.hide_line_dialog.remove_all()
         for section_name in self.data_frames.keys():
             for dataframe in self.data_frames[section_name]:
@@ -1670,9 +1680,12 @@ class WindRoseGraphWindowWidget(AbstractGraphWindowWidget):
         core_layout.addWidget(self.slider)
         core_layout.addWidget(self.plot_widget)
         self.setLayout(core_layout)
-
+    
+    @loading('checkbox_activate')
     def plot_graph_action(self) -> None:
         self.data_frames = self.borehole_window.borehole.get_sensor_dataframe_dict()
+        
+    def checkbox_activate(self) -> None:
         self.hide_line_dialog.remove_all()
         for section_name in self.data_frames:
             self.hide_line_dialog.add_checkbox(section_name,

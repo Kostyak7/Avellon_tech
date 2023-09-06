@@ -1,9 +1,10 @@
 import os
 import pathlib
 from uuid import uuid4
-from PySide6.QtWidgets import QWidget, QCheckBox, QVBoxLayout, QHBoxLayout, QLineEdit, \
+from PySide6.QtWidgets import QWidget, QCheckBox, QVBoxLayout, QHBoxLayout, QMessageBox, \
     QPushButton, QFileDialog, QListWidget, QListWidgetItem, QLabel, QDialog, QTextEdit, QTabWidget
-from PySide6.QtCore import Qt, QUrl, QPoint, QSize, QRect
+from PySide6.QtCore import Qt, QUrl, QPoint, QSize, QRect, QRunnable, QThreadPool, Signal, QObject
+from PySide6.QtGui import QMovie
 import config as cf
 
 
@@ -12,6 +13,35 @@ class MyWarning(Warning):
         self.message = message_
         self.exception_title = exception_title_
         super().__init__(self.message)
+
+
+class MessageSignalHandler(QObject):
+    information = Signal(str, str)
+    warning = Signal(str, str)
+    
+
+class MessageBox:
+    def __init__(self) -> None:
+        self.signal_handler = MessageSignalHandler()
+        self.signal_handler.information.connect(self.wrapper_information_message)
+        self.signal_handler.warning.connect(self.wrapper_warning_message)
+    
+    def information(self, title_: str, message_: str) -> None:
+        self.signal_handler.information.emit(title_, message_)
+    
+    def warning(self, title_: str, message_: str) -> None:
+        self.signal_handler.warning.emit(title_, message_)
+    
+    def wrapper_information_message(self, title_: str, message_: str) -> None:
+        QMessageBox.information(None, title_, message_, QMessageBox.Ok)
+    
+    def wrapper_warning_message(self, title_: str, message_: str) -> None:
+        QMessageBox.warning(None, title_, message_, QMessageBox.Ok)
+    
+    def __new__(cls):
+        if not hasattr(cls, 'instance'):
+            cls.instance = super(MessageBox, cls).__new__(cls)
+        return cls.instance
 
 
 def get_num_file_by_default(base_name_: str, sensor_amount_: int) -> list:
@@ -275,3 +305,57 @@ class HelpInfoDialog(QDialog):
     
     def run(self) -> None:
         self.show()
+
+
+class LoadLabel(QLabel):
+    def __init__(self, parent_: QWidget = None):
+        super().__init__(parent_)
+        self.setWindowFlag(Qt.FramelessWindowHint)
+        self.setScaledContents(True)
+        self.setMaximumWidth(200)
+        
+        self.movie = QMovie('resource/img/loading.gif')
+        self.setMovie(self.movie)
+    
+    def __set_actual_size(self, image_size_: QSize) -> QSize:
+        actual_size = QSize(200, 0)
+        actual_size.setHeight(image_size_.height() * actual_size.width() // image_size_.width())
+        self.setFixedSize(actual_size)
+    
+    def run(self) -> None:
+        self.movie.start()
+        self.__set_actual_size(self.movie.currentImage().size())
+        self.show()
+    
+    def stop(self) -> None:
+        self.movie.stop()
+        self.close()
+
+
+class Worker(QRunnable):
+    def __init__(self, executable_function_, *args, **kwargs) -> None:
+        super().__init__()
+        self.executable_function = executable_function_
+        self.args = args
+        self.kwargs = kwargs
+        
+    def run(self) -> None:
+        self.executable_function(*self.args, **self.kwargs)
+
+
+class ThreadPool:
+    def __init__(self):
+        self.threadpool = QThreadPool()
+        self.load_label = LoadLabel()
+        
+    def start_worker(self, executable_function_, is_load_label_: bool = True,  *args, **kwargs) -> None:
+        if is_load_label_:
+            self.load_label.run()
+
+        worker = Worker(executable_function_, *args, **kwargs)
+        self.threadpool.start(worker)
+
+        if is_load_label_:
+            self.load_label.stop()
+    
+    
