@@ -1638,7 +1638,8 @@ class DepthSettingsDialog(AbstractGraphToolDialog):
         self.setLayout(core_layout)
 
     def __editors_init(self) -> None:
-        self.mean_editor.addItems(["Среднее арифметическое", "Медиана"])
+        self.mean_editor.addItems(["Среднее арифметическое", "Медиана", "Среднее геометрическое",
+                                   "Среднее гармоническое", "Сгруппированная медиана"])
         self.mean_editor.currentIndexChanged.connect(self.mean_changed_action)
         self.mean_editor.setCurrentIndex(0)
 
@@ -1671,12 +1672,23 @@ class DepthResponseGraphWindowWidget(AbstractGraphWindowWidget):
         self.settings_menu_action_btn = self.tools_menu_btn.addAction('Настройки графика')
         self.settings_menu_action_btn.triggered.connect(self.depth_settings_dialog.run)
 
+        self.step_nums_list = list()
+        self.slider = QSlider(Qt.Horizontal, self)
+        self.__slider_init()
         self.__all_widgets_to_layout()
         self.activate(False)
+
+    def __slider_init(self) -> None:
+        self.slider.setSingleStep(1)
+        self.slider.setPageStep(1)
+        self.slider.setTickPosition(QSlider.TicksBelow)
+        self.slider.setMinimumWidth(int(self.borehole_window.main_window.size().width() / 4 * 3))
+        self.slider.valueChanged.connect(self.replot_for_new_data)
 
     def __all_widgets_to_layout(self) -> None:
         core_layout = QVBoxLayout()
         core_layout.addWidget(self.menu_bar)
+        core_layout.addWidget(self.slider)
         core_layout.addWidget(self.plot_widget)
         self.setLayout(core_layout)
 
@@ -1684,14 +1696,24 @@ class DepthResponseGraphWindowWidget(AbstractGraphWindowWidget):
         self.data_frames = self.borehole_window.borehole.get_step_depth_dataframe_dict()
         if len(self.data_frames) < 1:
             return
+
+        self.step_nums_list.clear()
+        for step_num in self.data_frames.keys():
+            self.step_nums_list.append(step_num)
+        self.step_nums_list.sort()
+        self.slider.setRange(1, len(self.step_nums_list))
+
         self.replot_for_new_data()
 
     def replot_for_new_data(self) -> None:
         if self.depth_settings_dialog.sensor_num == -1:
-            self.plot_widget.recreate(self.data_frames, sensor_num=-1, step_num=0,
+            self.plot_widget.recreate(self.data_frames, sensor_num=-1,
+                                      step_num=self.step_nums_list[self.slider.value()],
                                       mean_mode=self.depth_settings_dialog.mean_mode)
         else:
-            self.plot_widget.recreate(self.data_frames, sensor_num=self.depth_settings_dialog.sensor_num, step_num=0)
+            self.plot_widget.recreate(self.data_frames, sensor_num=self.depth_settings_dialog.sensor_num,
+                                      step_num=self.step_nums_list[self.slider.value()])
+
 
 # ---------------- WindRose ----------------
 class WindRoseGraphWindowWidget(AbstractGraphWindowWidget):
