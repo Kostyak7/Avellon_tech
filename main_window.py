@@ -1562,9 +1562,8 @@ class FrequencyResponseGraphWindowWidget(AbstractGraphWindowWidget):
         self.setLayout(core_layout)
     
     def activate(self, is_active_: bool = True) -> None:
-        self.hide_line_dialog.close()
         self.cracks_dialog.close()
-        self.setVisible(is_active_)
+        super().activate(is_active_)
 
     @loading('checkbox_activate')
     def plot_graph_action(self) -> None:
@@ -1625,7 +1624,7 @@ class DepthSettingsDialog(AbstractGraphToolDialog):
         self.mean_editor = QComboBox(self)
         self.sensors_editor = QComboBox(self)
         self.__editors_init()
-        self.accept_btn = ButtonWidget('Ок', self, action=self.close)
+        self.accept_btn = ButtonWidget('Ок', self, action=self.accept_action)
         self.__all_widgets_to_layout()
 
     def __all_widgets_to_layout(self) -> None:
@@ -1657,9 +1656,11 @@ class DepthSettingsDialog(AbstractGraphToolDialog):
         self.sensor_num = index_ - 1
         self.mean_editor.setVisible(self.sensor_num < 0)
 
-    def close(self) -> None:
-        # self.depth_window_graph.plot_graph_action()
+    def accept_action(self) -> None:
         self.depth_window_graph.replot_for_new_data()
+        self.close()
+
+    def close(self) -> None:
         super().close()
 
 
@@ -1692,6 +1693,10 @@ class DepthResponseGraphWindowWidget(AbstractGraphWindowWidget):
         core_layout.addWidget(self.plot_widget)
         self.setLayout(core_layout)
 
+    def activate(self, is_active_: bool = True) -> None:
+        self.depth_settings_dialog.close()
+        super().activate(is_active_)
+
     def plot_graph_action(self) -> None:
         self.data_frames = self.borehole_window.borehole.get_step_depth_dataframe_dict()
         if len(self.data_frames) < 1:
@@ -1702,17 +1707,22 @@ class DepthResponseGraphWindowWidget(AbstractGraphWindowWidget):
             self.step_nums_list.append(step_num)
         self.step_nums_list.sort()
         self.slider.setRange(1, len(self.step_nums_list))
+        self.slider.setValue(1)
 
         self.replot_for_new_data()
 
+    # @loading('checkbox_activate')
     def replot_for_new_data(self) -> None:
         if self.depth_settings_dialog.sensor_num == -1:
             self.plot_widget.recreate(self.data_frames, sensor_num=-1,
-                                      step_num=self.step_nums_list[self.slider.value()],
+                                      step_num=self.step_nums_list[self.slider.value() - 1],
                                       mean_mode=self.depth_settings_dialog.mean_mode)
         else:
             self.plot_widget.recreate(self.data_frames, sensor_num=self.depth_settings_dialog.sensor_num,
-                                      step_num=self.step_nums_list[self.slider.value()])
+                                      step_num=self.step_nums_list[self.slider.value() - 1])
+
+    def checkbox_activate(self) -> None:
+        pass
 
 
 # ---------------- WindRose ----------------
@@ -1745,7 +1755,7 @@ class WindRoseGraphWindowWidget(AbstractGraphWindowWidget):
         core_layout.addWidget(self.slider)
         core_layout.addWidget(self.plot_widget)
         self.setLayout(core_layout)
-    
+
     @loading('checkbox_activate')
     def plot_graph_action(self) -> None:
         self.data_frames = self.borehole_window.borehole.get_sensor_dataframe_dict()
