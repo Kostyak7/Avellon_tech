@@ -151,7 +151,7 @@ class AbstractQtGraphWidget(PlotWidget):
 
     def data_x_init(self) -> None: ...
 
-    def recreate(self, data_frames_) -> None:
+    def recreate(self, data_frames_, **kwargs) -> None:
         for line in self.lines:
             line.clear()
         self.data_frames = data_frames_
@@ -272,8 +272,11 @@ class AmplitudeTimeGraphWidget(AbstractQtGraphWidget):
 class DepthResponseGraphWidget(AbstractQtGraphWidget):
     def __init__(self, data_frames_: dict, parent_: QWidget = None):
         super().__init__(data_frames_, parent_)
+        self.mean_mode = -1
+        self.sensor_num = -1
+        self.step_num = -1
         self.graph_init()
-        self.setTitle("График соотношения глубины и абсолютной величины")
+        self.setTitle("График соотношения глубины и абсолютной величины мощности сигнала")
         self.setLabel('left', 'Глубина (м)')
         self.setLabel('bottom', 'Мощность сигнала')
 
@@ -286,20 +289,28 @@ class DepthResponseGraphWidget(AbstractQtGraphWidget):
         if len(self.data_frames.keys()) < 1:
             return
         color_i, c = 0, 0
-        for key in self.data_frames.keys():
-            for i in range(len(self.data_frames[key])):
-                if color_i >= len(cf.COLOR_NAMES):
-                    color_i = 0
-                if c >= len(self.lines):
-                    self.lines.append(self.plot(self.dict_data_x[key]['x'],
-                                                self.data_frames[key][i].data["y"],
-                                                pen=mkPen(cf.COLOR_NAMES[color_i])))
-                elif self.data_frames[key][i].active:
-                    self.lines[c].setData(self.dict_data_x[key]['x'],
-                                          self.data_frames[key][i].data["y"])
-                self.legend.addItem(self.lines[c], self.data_frames[key][i].name)
-                c += 1
-                color_i += 1
+        if self.step_num not in self.data_frames:
+            return
+        for section_depth in self.data_frames[self.step_num].keys():
+            if self.mean_mode >= 0 and self.sensor_num not in self.data_frames[self.step_num][section_depth]:
+                continue
+            if color_i >= len(cf.COLOR_NAMES):
+                color_i = 0
+            data_y_list = [section_depth + 8, section_depth]
+            data_x_list = [self.data_frames[self.step_num][section_depth][self.mean_mode if self.mean_mode < 0 else self.sensor_num]] * 2
+            if c >= len(self.lines):
+                self.lines.append(self.plot(data_x_list, data_y_list, pen=mkPen(cf.COLOR_NAMES[color_i], width=5)))
+            else:
+                self.lines[c].setData(data_x_list, data_y_list)
+            self.legend.addItem(self.lines[c], 'section=' + str(section_depth))
+            c += 1
+            color_i += 1
+
+    def recreate(self, data_frames_, **kwargs) -> None:
+        self.mean_mode = kwargs['mean_mode'] if 'mean_mode' in kwargs else 0
+        self.sensor_num = kwargs['sensor_num'] if 'sensor_num' in kwargs else -1
+        self.step_num = kwargs['step_num'] if 'step_num' in kwargs else -1
+        super().recreate(data_frames_, **kwargs)
 
 
 # MATPLOTLIB GRAPH

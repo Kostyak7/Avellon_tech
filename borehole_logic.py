@@ -2,6 +2,7 @@ import os
 import pathlib
 import shutil
 from uuid import uuid4
+import statistics as st
 from PySide6.QtWidgets import QWidget, QMessageBox
 from PySide6.QtCore import Qt
 from third_party import get_num_file_by_default, MessageBox
@@ -407,9 +408,6 @@ class Borehole:
 
         self.load_info_from_file()
 
-    def __del__(self):
-        self.save_info_to_file()
-
     def __eq__(self, other_) -> bool:
         return self.id == other_.id
 
@@ -522,6 +520,31 @@ class Borehole:
         dataframes_dict = dict()
         for section in self.section_list:
             dataframes_dict[section.name] = section.get_step_maxes_dataframe_list()
+        return dataframes_dict
+
+    def get_step_depth_dataframe_dict(self):
+        dataframes_dict = dict()
+        for section in self.section_list:
+            for step in section.step_list:
+                if step.number not in dataframes_dict:
+                    dataframes_dict[step.number] = dict()
+                if section.depth not in dataframes_dict[step.number] and len(step.data_list):
+                    dataframes_dict[step.number][section.depth] = dict()
+                for datafile in step.data_list:
+                    if datafile.sensor_num not in dataframes_dict[step.number][section.depth]:
+                        dataframes_dict[step.number][section.depth][datafile.sensor_num] = datafile.max()
+                    dataframes_dict[step.number][section.depth][datafile.sensor_num] = max(dataframes_dict[step.number][section.depth][datafile.sensor_num], datafile.max())
+        for step_num in dataframes_dict.keys():
+            for section_depth in dataframes_dict[step_num].keys():
+                sensor_list = list()
+                for sensor_num in dataframes_dict[step_num][section_depth].keys():
+                    sensor_list.append(dataframes_dict[step_num][section_depth][sensor_num])
+                if len(sensor_list):
+                    dataframes_dict[step_num][section_depth][-1] = st.mean(sensor_list)
+                    dataframes_dict[step_num][section_depth][-2] = st.median(sensor_list)
+                    dataframes_dict[step_num][section_depth][-3] = st.geometric_mean(sensor_list)
+                    dataframes_dict[step_num][section_depth][-4] = st.harmonic_mean(sensor_list)
+                    dataframes_dict[step_num][section_depth][-5] = st.median_grouped(sensor_list)
         return dataframes_dict
 
     def save_info_to_file(self, filename_: str = cf.BOREHOLE_INFO_SAVE_FILENAME) -> None:

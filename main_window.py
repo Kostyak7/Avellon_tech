@@ -14,7 +14,7 @@ from graph_widget import XYDataFrame, OscilloscopeGraphWidget, AmplitudeTimeGrap
 from third_party import AbstractFunctor, HelpInfoDialog, SimpleItemListWidget, \
     get_num_file_by_default, select_path_to_files, \
     select_path_to_dir, select_path_to_one_file, ListWidget, AbstractWindowWidget, \
-    MyCheckBox, ButtonWidget, MessageBox
+    MyCheckBox, ButtonWidget, MessageBox, get_last_project_path
 from loadlabel import loading
 from borehole_logic import *
 from converter import ConverterDialog
@@ -51,7 +51,8 @@ import config as cf
 # TODO 26) Rewrite README
 # TODO 27) close event
 # TODO 28) pyinstaller for .exe
-# TODO 29) 
+# TODO 29) Предупреждение о неполности данных
+# TODO 30)
 
 
 class MainWindow(QMainWindow):
@@ -68,25 +69,11 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(QIcon(cf.ICON_WINDOW_PATH))
     
     def __cache_init(self) -> None:
-        is_break = False
-        if not os.path.isdir(cf.CACHE_DIR_PATH):
-            os.mkdir(cf.CACHE_DIR_PATH)
-            is_break = True
-        if not os.path.isfile(cf.CACHE_FILE_INFO_PATH):
-            file = open(cf.CACHE_FILE_INFO_PATH, 'w', encoding='UTF-8')
-            file.close()
-            is_break = True
-        if is_break:
+        last_project_path = get_last_project_path()
+        if last_project_path is None:
             self.run_main_menu()
             return
-        file = open(cf.CACHE_FILE_INFO_PATH, 'r', encoding='UTF-8')
-        project_path = file.readline().replace('/n', '')
-        file.close()
-        if len(project_path) < 1 or not os.path.isdir(project_path):
-            os.remove(cf.CACHE_FILE_INFO_PATH)
-            self.run_main_menu()
-            return
-        self.run_borehole_menu(project_path)
+        self.run_borehole_menu(last_project_path)
     
     def __cache_save(self, project_name_: str) -> None:
         if project_name_ is None:
@@ -123,6 +110,7 @@ class MainMenuWidget(QWidget):
 
         self.button_list = SimpleItemListWidget(ButtonWidget, self)
         self.button_list.add_item("Создать проект", action=self.create_project_action)
+        self.button_list.add_item("Открыть последний проект", action=self.open_last_project_action)
         self.button_list.add_item("Открыть проект", action=self.open_project_action)
         self.button_list.add_item("Выход", action=self.quit_action, shortcut="Shift+Esc")
 
@@ -151,6 +139,9 @@ class MainMenuWidget(QWidget):
 
     def create_project_action(self) -> None:
         self.create_project_dialog.run()
+
+    def open_last_project_action(self) -> None:
+        self.main_window.run_borehole_menu(get_last_project_path())
 
     def open_project_action(self) -> None:
         project_path = select_path_to_dir(self)
@@ -322,7 +313,7 @@ class BoreholeMenuWindowWidget(QWidget):
             self.converter_action_btn = self.menu_bar.addAction('&Конвертер', 'Ctrl+k')
             self.response_action_btn = self.menu_bar.addAction('&Выгрузить отчет', 'Ctrl+r')
             self.view_menu_btn = self.menu_bar.addMenu('Вид')
-            self.back_main_menu_action_btn = self.menu_bar.addAction('&В главное меню', 'Shift+Esc')
+            self.back_main_menu_action_btn = self.menu_bar.addAction('В главное меню')
             self.__menu_bar_init()
         
         def __menu_bar_init(self) -> None:
@@ -351,11 +342,11 @@ class BoreholeMenuWindowWidget(QWidget):
     def __init__(self, path_: str, main_window_: MainWindow):
         super().__init__(main_window_)
         self.id = uuid4()
-        self.name = os.path.basename(path_)
-        if len(self.name) < 1:
+        if path_ is None or len(os.path.basename(path_)) < 1:
             MessageBox().warning('Empty name', 'Пустое имя проекта!')
             main_window_.run_main_menu()
             return
+        self.name = os.path.basename(path_)
         self.main_window = main_window_
         self.main_window.setWindowTitle(self.name + " - скважина")
 
@@ -364,33 +355,44 @@ class BoreholeMenuWindowWidget(QWidget):
         self.converter_dialog = ConverterDialog(self)
 
         self.borehole_menu_widget = BoreHoleMenuWidget(self.name, self)
-        self.oscilloscope_window_widget = OscilloscopeGraphWindowWidget(self)
-        self.frequency_window_widget = FrequencyResponseGraphWindowWidget(self)
-        self.amplitude_window_widget = AmplitudeTimeGraphWindowWidget(self)
-        self.depth_window_widget = DepthResponseGraphWindowWidget(self)
-        self.windrose_window_widget = WindRoseGraphWindowWidget(self)
+        self.graph_window_widgets = {
+            'oscilloscope': OscilloscopeGraphWindowWidget(self),
+            'frequency': FrequencyResponseGraphWindowWidget(self),
+            'amplitude': AmplitudeTimeGraphWindowWidget(self),
+            'depth': DepthResponseGraphWindowWidget(self),
+            'windrose': WindRoseGraphWindowWidget(self),
+        }
+        # self.oscilloscope_window_widget = OscilloscopeGraphWindowWidget(self)
+        # self.frequency_window_widget = FrequencyResponseGraphWindowWidget(self)
+        # self.amplitude_window_widget = AmplitudeTimeGraphWindowWidget(self)
+        # self.depth_window_widget = DepthResponseGraphWindowWidget(self)
+        # self.windrose_window_widget = WindRoseGraphWindowWidget(self)
 
         top_menu_bar_init = self.TopMenuBarInit(self)
         self.__all_widgets_to_layout()
-        self.borehole_menu_widget.activate()
+        self.borehole_menu_action()
 
     def __all_widgets_to_layout(self) -> None:
         core_layout = QVBoxLayout()
         core_layout.addWidget(self.borehole_menu_widget)
-        core_layout.addWidget(self.oscilloscope_window_widget)
-        core_layout.addWidget(self.frequency_window_widget)
-        core_layout.addWidget(self.amplitude_window_widget)
-        core_layout.addWidget(self.depth_window_widget)
-        core_layout.addWidget(self.windrose_window_widget)
+        for key in self.graph_window_widgets.keys():
+            core_layout.addWidget(self.graph_window_widgets[key])
+        # core_layout.addWidget(self.oscilloscope_window_widget)
+        # core_layout.addWidget(self.frequency_window_widget)
+        # core_layout.addWidget(self.amplitude_window_widget)
+        # core_layout.addWidget(self.depth_window_widget)
+        # core_layout.addWidget(self.windrose_window_widget)
         self.setLayout(core_layout)
-    
-    def __deactivate_all(self, is_deactive_: bool = True) -> None:
-        self.borehole_menu_widget.activate(not is_deactive_)
-        self.oscilloscope_window_widget.activate(not is_deactive_)
-        self.frequency_window_widget.activate(not is_deactive_)
-        self.amplitude_window_widget.activate(not is_deactive_)
-        self.depth_window_widget.activate(not is_deactive_)
-        self.windrose_window_widget.activate(not is_deactive_)
+
+    def __deactivate_all(self, is_deactivate_: bool = True) -> None:
+        self.borehole_menu_widget.activate(not is_deactivate_)
+        for key in self.graph_window_widgets.keys():
+            self.graph_window_widgets[key].activate(not is_deactivate_)
+        # self.oscilloscope_window_widget.activate(not is_deactivate_)
+        # self.frequency_window_widget.activate(not is_deactivate_)
+        # self.amplitude_window_widget.activate(not is_deactivate_)
+        # self.depth_window_widget.activate(not is_deactivate_)
+        # self.windrose_window_widget.activate(not is_deactivate_)
     
     def set_borehole_action(self) -> None:
         self.borehole_dialog.run()
@@ -405,25 +407,39 @@ class BoreholeMenuWindowWidget(QWidget):
         self.main_window.menuBar().clear()
         self.main_window.run_main_menu()
 
-    def plot_oscilloscope_action(self) -> None:
+    def borehole_menu_action(self) -> None:
         self.__deactivate_all()
-        self.oscilloscope_window_widget.activate()
+        self.borehole_menu_widget.activate()
+
+    def __plot_graph_action_interface(self, name_: str) -> None:
+        self.__deactivate_all()
+        if name_ in self.graph_window_widgets:
+            self.graph_window_widgets[name_].activate()
+
+    def plot_oscilloscope_action(self) -> None:
+        self.__plot_graph_action_interface('oscilloscope')
+        # self.__deactivate_all()
+        # self.oscilloscope_window_widget.activate()
 
     def plot_frequency_resp_action(self) -> None:
-        self.__deactivate_all()
-        self.frequency_window_widget.activate()
+        self.__plot_graph_action_interface('frequency')
+        # self.__deactivate_all()
+        # self.frequency_window_widget.activate()
 
     def plot_amplitude_time_action(self) -> None:
-        self.__deactivate_all()
-        self.amplitude_window_widget.activate()
+        self.__plot_graph_action_interface('amplitude')
+        # self.__deactivate_all()
+        # self.amplitude_window_widget.activate()
 
     def plot_depth_response_action(self) -> None:
-        self.__deactivate_all()
-        self.depth_window_widget.activate()
+        self.__plot_graph_action_interface('depth')
+        # self.__deactivate_all()
+        # self.depth_window_widget.activate()
 
     def plot_wind_rose_action(self) -> None:
-        self.__deactivate_all()
-        self.windrose_window_widget.activate()
+        self.__plot_graph_action_interface('windrose')
+        # self.__deactivate_all()
+        # self.windrose_window_widget.activate()
 
 
 class BoreHoleMenuWidget(AbstractWindowWidget):
@@ -560,6 +576,7 @@ class BoreHoleDialog(QDialog):
                     print('\t\tf\t', file.path)
 
         self.borehole.correlate_data()
+        self.borehole.save_info_to_file()
 
         print('______________________________')
         print("OUT:", self.borehole.path())
@@ -989,12 +1006,17 @@ class AbstractGraphWindowWidget(AbstractWindowWidget):
         self.plot_action_btn =  self.menu_bar.addAction("&▷ Построить", "Ctrl+p")
         self.tools_menu_btn = self.menu_bar.addMenu('Инструменты')
         self.help_action_btn = self.menu_bar.addAction('&Справка', "Ctrl+i")
+        self.back_action_btn = self.menu_bar.addAction('&Назад', "Shift+Esc")
         self.__actions_init()
 
     def __actions_init(self) -> None:
         self.save_action_btn.triggered.connect(self.save_data_by_default_action)
         self.plot_action_btn.triggered.connect(self.plot_graph_action)
+        self.__tools_menu_init()
+        self.help_action_btn.triggered.connect(self.help_window_action)
+        self.back_action_btn.triggered.connect(self.back_action)
 
+    def __tools_menu_init(self) -> None:
         tools_save_action_btn = self.tools_menu_btn.addAction('Сохранить')
         tools_save_as_action_btn = self.tools_menu_btn.addAction('Сохранить как')
         hide_lines_action_btn = self.tools_menu_btn.addAction('Отображение линий')
@@ -1002,8 +1024,6 @@ class AbstractGraphWindowWidget(AbstractWindowWidget):
         tools_save_action_btn.triggered.connect(self.save_data_by_default_action)
         tools_save_as_action_btn.triggered.connect(self.save_data_by_select_action)
         hide_lines_action_btn.triggered.connect(self.run_hide_line_dialog_action)
-
-        self.help_action_btn.triggered.connect(self.help_window_action)
 
     def activate(self, is_active_: bool = True) -> None:
         self.hide_line_dialog.close()
@@ -1034,6 +1054,9 @@ class AbstractGraphWindowWidget(AbstractWindowWidget):
     
     def help_window_action(self) -> None:
         self.help_info_dialog.run()
+
+    def back_action(self) -> None:
+        self.borehole_window.borehole_menu_action()
 
     def run_hide_line_dialog_action(self) -> None:
         self.hide_line_dialog.run()
@@ -1593,15 +1616,61 @@ class AmplitudeTimeGraphWindowWidget(AbstractGraphWindowWidget):
 
 
 # ---------------- DepthResponseTime ----------------
+class DepthSettingsDialog(AbstractGraphToolDialog):
+    def __init__(self, depth_window_graph_):
+        super().__init__('Graph settings', depth_window_graph_)
+        self.depth_window_graph = depth_window_graph_
+        self.mean_mode = -1 # -1 means ARITHMETIC
+        self.sensor_num = -1 # -1 means all sensors
+        self.mean_editor = QComboBox(self)
+        self.sensors_editor = QComboBox(self)
+        self.__editors_init()
+        self.accept_btn = ButtonWidget('Ок', self, action=self.close)
+        self.__all_widgets_to_layout()
+
+    def __all_widgets_to_layout(self) -> None:
+        core_layout = QVBoxLayout()
+        flo = QFormLayout()
+        flo.addRow('Cпособо среднего', self.mean_editor)
+        flo.addRow('Выбрать датчики', self.sensors_editor)
+        core_layout.addLayout(flo)
+        core_layout.addWidget(self.accept_btn)
+        self.setLayout(core_layout)
+
+    def __editors_init(self) -> None:
+        self.mean_editor.addItems(["Среднее арифметическое", "Медиана"])
+        self.mean_editor.currentIndexChanged.connect(self.mean_changed_action)
+        self.mean_editor.setCurrentIndex(0)
+
+        choice_list = ["Все датчики"]
+        for i in range(cf.DEFAULT_SENSOR_AMOUNT):
+            choice_list.append("Датчик " + chr(ord('A') + i))
+        self.sensors_editor.addItems(choice_list)
+        self.sensors_editor.currentIndexChanged.connect(self.sensors_changed_action)
+        self.sensors_editor.setCurrentIndex(0)
+
+    def mean_changed_action(self, index_: int) -> None:
+        self.mean_mode = - index_ -1
+
+    def sensors_changed_action(self, index_: int) -> None:
+        self.sensor_num = index_ - 1
+        self.mean_editor.setVisible(self.sensor_num < 0)
+
+    def close(self) -> None:
+        # self.depth_window_graph.plot_graph_action()
+        self.depth_window_graph.replot_for_new_data()
+        super().close()
+
+
 class DepthResponseGraphWindowWidget(AbstractGraphWindowWidget):
     def __init__(self, borehole_window_: BoreholeMenuWindowWidget):
         super().__init__(borehole_window_)
         self.plot_widget = DepthResponseGraphWidget(dict(), self)
-        self.mean_menu_btn = self.tools_menu_btn.addMenu('Cпособо среднего')
-        self.arithmetic_mean_action_btn = self.mean_menu_btn.addAction('Среднее арифметическое')
-        self.median_mean_action_btn = self.mean_menu_btn.addAction('Медиана')
-        self.mean_mode = 'ARITHMETIC'
-        self.__mean_actions_init()
+
+        self.depth_settings_dialog = DepthSettingsDialog(self)
+        self.settings_menu_action_btn = self.tools_menu_btn.addAction('Настройки графика')
+        self.settings_menu_action_btn.triggered.connect(self.depth_settings_dialog.run)
+
         self.__all_widgets_to_layout()
         self.activate(False)
 
@@ -1610,45 +1679,19 @@ class DepthResponseGraphWindowWidget(AbstractGraphWindowWidget):
         core_layout.addWidget(self.menu_bar)
         core_layout.addWidget(self.plot_widget)
         self.setLayout(core_layout)
-    
-    def __mean_actions_init(self) -> None:
-        self.arithmetic_mean_action_btn.setCheckable(True)
-        self.arithmetic_mean_action_btn.setChecked(True)
-        self.arithmetic_mean_action_btn.triggered.connect(self.arithmetic_mean_action)
-        self.median_mean_action_btn.setCheckable(True)
-        self.median_mean_action_btn.triggered.connect(self.median_mean_action)
-    
-    def arithmetic_mean_action(self, state_: bool) -> None:
-        if not state_:
-            is_other = self.median_mean_action_btn.isChecked() or False
-            if not is_other:
-                self.arithmetic_mean_action_btn.setChecked(True)
-        else:
-            if self.median_mean_action_btn.isChecked():
-                self.median_mean_action_btn.setChecked(False)
-    
-    def median_mean_action(self, state_: bool) -> None:
-        if not state_:
-            is_other = self.arithmetic_mean_action_btn.isChecked() or False
-            if not is_other:
-                self.median_mean_action_btn.setChecked(True)
-        else:
-            if self.arithmetic_mean_action_btn.isChecked():
-                self.arithmetic_mean_action_btn.setChecked(False)
 
     def plot_graph_action(self) -> None:
-        self.data_frames = self.borehole_window.borehole.get_step_maxes_dataframe_dict()
+        self.data_frames = self.borehole_window.borehole.get_step_depth_dataframe_dict()
         if len(self.data_frames) < 1:
             return
-
-        self.hide_line_dialog.remove_all()
-        for section_name in self.data_frames.keys():
-            for dataframe in self.data_frames[section_name]:
-                self.plot_widget.dict_data_x[section_name] = dataframe.tmp_value
-                self.hide_line_dialog.add_checkbox(section_name + '=sensor=' + dataframe.name,
-                                                       CheckBoxHideFunctor(dataframe, self), True)
         self.replot_for_new_data()
 
+    def replot_for_new_data(self) -> None:
+        if self.depth_settings_dialog.sensor_num == -1:
+            self.plot_widget.recreate(self.data_frames, sensor_num=-1, step_num=0,
+                                      mean_mode=self.depth_settings_dialog.mean_mode)
+        else:
+            self.plot_widget.recreate(self.data_frames, sensor_num=self.depth_settings_dialog.sensor_num, step_num=0)
 
 # ---------------- WindRose ----------------
 class WindRoseGraphWindowWidget(AbstractGraphWindowWidget):

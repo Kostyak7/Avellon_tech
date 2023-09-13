@@ -229,6 +229,26 @@ def select_path_to_one_file(filter_str_: str, parent_: QWidget = None, **kwargs)
     return QFileDialog.getOpenFileName(parent_, 'Select File', filter=filter_str_)[0]
 
 
+def get_last_project_path() -> str:
+    is_break = False
+    if not os.path.isdir(cf.CACHE_DIR_PATH):
+        os.mkdir(cf.CACHE_DIR_PATH)
+        is_break = True
+    if not os.path.isfile(cf.CACHE_FILE_INFO_PATH):
+        file = open(cf.CACHE_FILE_INFO_PATH, 'w', encoding='UTF-8')
+        file.close()
+        is_break = True
+    if is_break:
+        return None
+    file = open(cf.CACHE_FILE_INFO_PATH, 'r', encoding='UTF-8')
+    project_path = file.readline().replace('/n', '')
+    file.close()
+    if len(project_path) < 1 or not os.path.isdir(project_path):
+        os.remove(cf.CACHE_FILE_INFO_PATH)
+        return None
+    return project_path
+
+
 class ButtonWidget(QPushButton):
     def __init__(self, name_: str, parent_: QWidget = None, *args, **kwargs):
         super().__init__(name_, parent_)
@@ -300,7 +320,6 @@ class HelpInfoDialog(QDialog):
     def __all_widgets_to_layout(self) -> None:
         core_layout = QVBoxLayout()
         core_layout.addWidget(self.tab_widget)
-        core_layout.addWidget(self.tab_widget)
         self.setLayout(core_layout)
     
     def run(self) -> None:
@@ -357,5 +376,7 @@ class ThreadPool:
 
         if is_load_label_:
             self.load_label.stop()
-    
+
+
+
     
