@@ -5,7 +5,7 @@ from PySide6.QtWidgets import QFileDialog, QVBoxLayout, QPushButton, QWidget, \
     QFormLayout, QLineEdit, QDialog
 from PySide6.QtGui import QIntValidator
 from PySide6.QtCore import Qt
-from third_party import MessageBox
+from third_party import MessageBox, AbstractToolDialog
 from loadlabel import loading
 import config as cf
 
@@ -46,14 +46,14 @@ class FileConverter:
     def convert(self) -> bool:
         if not pathlib.Path(self.old_filename).is_file():
             return False
-        old_file = open(self.old_filename, 'r', encoding='UTF-8')
-        new_file = open(self.new_filename, 'w', encoding='UTF-8')
-        if not self.__header_line_convert(old_file, new_file, 'Time Base') or \
-                not self.__header_line_convert(old_file, new_file, 'Sampling Rate') or \
-                not self.__header_line_convert(old_file, new_file, 'Amplitude') or \
-                not self.__header_line_convert(old_file, new_file, 'Amplitude resolution') or \
-                not self.__header_line_convert(old_file, new_file, 'Data Uint') or \
-                not self.__header_line_convert(old_file, new_file, 'Data points') or \
+        old_file = open(self.old_filename, 'r', encoding=cf.DEFAULT_ENCODING)
+        new_file = open(self.new_filename, 'w', encoding=cf.DEFAULT_ENCODING)
+        if not self.__header_line_convert(old_file, new_file, cf.TIME_BASE_HEADER) or \
+                not self.__header_line_convert(old_file, new_file, cf.SAMPLING_RATE_HEADER) or \
+                not self.__header_line_convert(old_file, new_file, cf.AMPLITUDE_HEADER) or \
+                not self.__header_line_convert(old_file, new_file, cf.AMPLITUDE_RESOLUTION_HEADER) or \
+                not self.__header_line_convert(old_file, new_file, cf.DATA_UINT_HEADER) or \
+                not self.__header_line_convert(old_file, new_file, cf.DATA_POINTS_HEADER) or \
                 not self.__data_convert(old_file, new_file):
             os.remove(self.new_filename)
             return False
@@ -85,12 +85,18 @@ class FileConverter:
 
 
 class FileDirector:
-    def __init__(self, filename_list_: list, sensor_num_: int, crash_deep_: int, start_measurement_num_: int):
+    def __init__(self, filename_list_: list, sensor_num_: int, crash_deep_: int, start_measurement_num_: int,
+                 converted_folder_name_: str = cf.DEFAULT_CONVERTED_DATA_FOLDER, converted_folder_path_: str = None,
+                 in_exist_: bool = False):
         self.filename_list = filename_list_
         self.sensor_num = sensor_num_
         self.crash_deep = crash_deep_
         self.start_measurement_num = start_measurement_num_
-        self.save_dir = try_create_dir(str(pathlib.Path(filename_list_[0]).parent), 'Converted data')
+        self.save_dir = str((pathlib.Path().resolve() if converted_folder_path_ is None
+                             else pathlib.Path(converted_folder_path_))  / converted_folder_name_)
+        if not in_exist_ or not os.path.isdir(self.save_dir):
+            self.save_dir = try_create_dir(str(pathlib.Path(filename_list_[0]).parent), converted_folder_name_) \
+                if converted_folder_path_ is None else try_create_dir(converted_folder_path_, converted_folder_name_)
 
     def convert(self) -> bool:
         measurement_num = self.start_measurement_num
@@ -104,14 +110,12 @@ class FileDirector:
         return True
 
 
-class ConverterDialog(QDialog):
+class ConverterDialog(AbstractToolDialog):
     def __init__(self, parent_: QWidget = None):
-        super().__init__(parent_)
+        super().__init__(cf.DATA_CONVERTER_DIALOG_TITLE, parent_)
         self.sensor_num = 0
         self.crash_deep = 0
         self.start_measurement_num = 0
-
-        self.setWindowTitle('Data Converter')
         self.setWindowModality(Qt.ApplicationModal)
 
         self.sensor_editor = QLineEdit(self)
@@ -121,6 +125,8 @@ class ConverterDialog(QDialog):
         self.__values_to_editors()
 
         self.files_button = QPushButton('Выбрать Файлы', self)
+        self.folder_files_button = QPushButton('Выбрать папку с файлами', self)
+        self.folder_folders_button = QPushButton('Выбрать папку с папками', self)
         self.exit_button = QPushButton('Выход', self)
         self.__button_init()
 
@@ -144,8 +150,10 @@ class ConverterDialog(QDialog):
         self.measurement_editor.setText(str(self.start_measurement_num))
 
     def __button_init(self) -> None:
-        self.files_button.clicked.connect(self.files_convertation_action)
-        self.exit_button.clicked.connect(self.exit_action)
+        self.files_button.clicked.connect(self.files_conversion_action)
+        self.folder_files_button.clicked.connect(self.folder_files_conversion_action)
+        self.folder_folders_button.clicked.connect(self.folder_folders_conversion_action)
+        self.exit_button.clicked.connect(self.cancel_action)
         self.exit_button.setShortcut("Shift+Esc")
 
     def __all_widgets_to_layout(self) -> None:
@@ -157,6 +165,8 @@ class ConverterDialog(QDialog):
         core_layout = QVBoxLayout()
         core_layout.addLayout(flo)
         core_layout.addWidget(self.files_button)
+        core_layout.addWidget(self.folder_files_button)
+        core_layout.addWidget(self.folder_folders_button)
         core_layout.addWidget(self.exit_button)
         self.setLayout(core_layout)
 
@@ -186,28 +196,70 @@ class ConverterDialog(QDialog):
         self.start_measurement_num = 0 if len(text_) < 1 else int(float(text_))
 
 
-    def files_convertation_action(self) -> None:
+    def files_conversion_action(self) -> None:
         filename_list, useless_filter = QFileDialog.getOpenFileNames(self, dir=str(pathlib.Path().resolve()),
                                                                      filter=cf.FILE_DIALOG_CSV_FILTER)
         if len(filename_list) < 1:
             return 
         print(filename_list)
         print(self.sensor_num, self.crash_deep, self.start_measurement_num)
-        self.convertation(filename_list)
-    
-    @loading('result_convertation', True)
-    def convertation(self, filename_list_: list) -> None:
-        file_director = FileDirector(filename_list_, self.sensor_num, self.crash_deep, self.start_measurement_num)
+        self.conversion(filename_list)
+
+    def folder_files_conversion_action(self) -> None:
+        dir_path = QFileDialog.getExistingDirectory(self, cf.SELECT_FOLDER_FILE_DIALOG_TITLE)
+        if len(dir_path) < 1 or not os.path.isdir(dir_path):
+            return
+        print(dir_path)
+        filename_list = []
+        for filename in pathlib.Path(dir_path).glob('*.csv'):
+            if filename.is_file():
+                filename_list.append(str(filename))
+        if len(filename_list) < 1:
+            return
+        self.conversion(filename_list, os.path.basename(dir_path) + ' - converted', str(pathlib.Path(dir_path).parent))
+
+    def folder_folders_conversion_action(self) -> None:
+        dir_path = QFileDialog.getExistingDirectory(self, cf.SELECT_FOLDER_FILE_DIALOG_TITLE)
+        if len(dir_path) < 1 or not os.path.isdir(dir_path):
+            return
+        print(dir_path)
+        folder_list = []
+        for filename in pathlib.Path(dir_path).glob('*'):
+            if filename.is_dir():
+                folder_list.append(str(filename))
+        if len(folder_list) < 1:
+            return
+        self.few_conversion(folder_list, os.path.basename(dir_path) + ' - converted', str(pathlib.Path(dir_path).parent))
+
+    @loading('result_conversion', True)
+    def conversion(self, filename_list_: list, converted_folder_name_: str = cf.DEFAULT_CONVERTED_DATA_FOLDER,
+                   converted_folder_path_: str = None) -> bool:
+        file_director = FileDirector(filename_list_, self.sensor_num, self.crash_deep, self.start_measurement_num,
+                                     converted_folder_name_, converted_folder_path_)
         return file_director.convert()
-        
-    def result_convertation(self, is_success_: bool) -> None:        
+
+    @loading('result_conversion', True)
+    def few_conversion(self, folder_list_: list, converted_folder_name_: str, converted_folder_path_: str) -> bool:
+        res = True
+        sensor_num = 0
+        for dirname in folder_list_:
+            filename_list = []
+            for filename in pathlib.Path(dirname).glob('*.csv'):
+                if filename.is_file():
+                    filename_list.append(str(filename))
+            if len(filename_list) < 1:
+                continue
+            file_director = FileDirector(filename_list, sensor_num, self.crash_deep, 0,
+                                         converted_folder_name_, converted_folder_path_, True)
+            res = file_director.convert() and res
+            sensor_num += 1
+        return res
+
+    def result_conversion(self, is_success_: bool) -> None:
         if is_success_:
-            MessageBox().information("Convert Complete", "Конвертирование успешно завершенно")
+            MessageBox().information(cf.CONVERT_COMPLETE_INFO_TITLE, cf.CONVERT_COMPLETE_INFO_MESSAGE)
         else:
-            MessageBox().warning("Convert Warning", "Ошибка конвертирования")
+            MessageBox().warning(cf.CONVERT_WARNING_TITLE, cf.CONVERT_WARNING_MESSAGE)
 
     def run(self) -> None:
         self.exec()
-
-    def exit_action(self) -> None:
-        self.close()

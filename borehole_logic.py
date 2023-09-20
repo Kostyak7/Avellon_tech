@@ -43,7 +43,7 @@ class DataFile:
 
     def get_xy_dataframe(self) -> XYDataFrame:
         if self.measurement_num == -1 or self.sensor_num == -1:
-            MessageBox().warning(cf.WRONG_FILENAME_WARNING_TITLE, f"{self.name} - имеет не соответстующее требованиям название!")
+            MessageBox().warning(cf.WRONG_FILENAME_WARNING_TITLE, cf.WRONG_FILENAME_WARNING_MESSAGE_F(self.name))
             self.max_value = None
             return None
         xy_dataframe = XYDataFrame(self.path())
@@ -177,6 +177,21 @@ class Step:
                 else:
                     i += 1
         return sensor_dict
+
+    def get_sensor_maxes_of_maxes_list(self) -> list:
+        sensor_list = [0] * cf.DEFAULT_MEASUREMENT_NUMBER
+        i = 0
+        for data_file in self.data_list:
+            if data_file.get_xy_dataframe() is None or data_file.sensor_num == -1:
+                while i < len(self.data_list):
+                    if self.data_list[i].sensor_num == -1:
+                        self.remove_file(id=self.data_list[i].id)
+                    else:
+                        i += 1
+                return list()
+            sensor_list[data_file.sensor_num] = max(sensor_list[data_file.sensor_num], data_file.max())
+            i += 1
+        return sensor_list
 
     def get_sensor_dataframe_list(self) -> list:
         sensor_dict = self.get_sensor_maxes_dict()
@@ -367,6 +382,9 @@ class Section:
             dataframes_list.append(MaxesDataFrame(str(i), [] if tmp_list[i] is None else tmp_list[i]))
         return dataframes_list
 
+    def get_sensor_maxes_dataframe_list(self) -> None:
+        dataframes_list = []
+
     def get_maxes_dataframe_list(self) -> list:
         dataframes_list = list()
         for step in self.step_list:
@@ -552,16 +570,16 @@ class Borehole:
         if os.path.isfile(path_filename):
             os.remove(path_filename)
         file = open(path_filename, "w")
-        file.write(f"BOREHOLE_NAME:{self.name}\n")
+        file.write(cf.BOREHOLE_NAME_BOREHOLE_INFO_F(self.name))
 
-        file.write("#START SECTIONS\n")
+        file.write(cf.START_SECTIONS_TAG_BOREHOLE_INFO)
         for section in self.section_list:
-            file.write("#START SECTION\n")
-            file.write(f"SECTION_NAME:{section.name}\n")
-            file.write(f"SECTION_DEPTH:{section.depth}\n")
-            file.write(f"SECTION_LENGTH:{section.length}\n")
-            file.write("#END SECTION\n")
-        file.write("#END SECTIONS\n")
+            file.write(cf.START_SECTION_TAG_BOREHOLE_INFO)
+            file.write(cf.SECTION_NAME_BOREHOLE_INFO_F(section.name))
+            file.write(cf.SECTION_DEPTH_BOREHOLE_INFO_F(section.depth))
+            file.write(cf.SECTION_LENGTH_BOREHOLE_INFO(section.length))
+            file.write(cf.END_SECTION_TAG_BOREHOLE_INFO)
+        file.write(cf.END_SECTIONS_TAG_BOREHOLE_INFO)
         file.close()
 
     def load_info_from_file(self, filename_: str = cf.BOREHOLE_INFO_SAVE_FILENAME) -> None:
@@ -575,23 +593,23 @@ class Borehole:
         tmp_name, tmp_depth, tmp_length = '', -1, -1.
         for line in file:
             if is_start:
-                if line[:len("BOREHOLE_NAME")] != 'BOREHOLE_NAME':
+                if line[:len(cf.BOREHOLE_NAME_BOREHOLE_INFO)] != cf.BOREHOLE_NAME_BOREHOLE_INFO:
                     file.close()
                     return
-                self.name = line[len("BOREHOLE_NAME") + 1:-1]
+                self.name = line[len(cf.BOREHOLE_NAME_BOREHOLE_INFO) + 1:-1]
                 is_start = False
             else:
                 if is_in_section:
-                    if line[:len("SECTION_NAME")] == 'SECTION_NAME':
-                        tmp_name = line[len("SECTION_NAME") + 1:-1]
-                    elif line[:len("SECTION_DEPTH")] == 'SECTION_DEPTH':
-                        tmp_depth = int(float(line[len("SECTION_DEPTH") + 1:]))
-                    elif line[:len("SECTION_LENGTH")] == 'SECTION_LENGTH':
-                        tmp_length = float(line[len("SECTION_LENGTH") + 1:])
-                    elif line == "#END SECTION\n":
+                    if line[:len(cf.SECTION_NAME_BOREHOLE_INFO)] == cf.SECTION_NAME_BOREHOLE_INFO:
+                        tmp_name = line[len(cf.SECTION_NAME_BOREHOLE_INFO) + 1:-1]
+                    elif line[:len(cf.SECTION_DEPTH_BOREHOLE_INFO)] == cf.SECTION_DEPTH_BOREHOLE_INFO:
+                        tmp_depth = int(float(line[len(cf.SECTION_DEPTH_BOREHOLE_INFO) + 1:]))
+                    elif line[:len(cf.SECTION_LENGTH_BOREHOLE_INFO)] == cf.SECTION_LENGTH_BOREHOLE_INFO:
+                        tmp_length = float(line[len(cf.SECTION_LENGTH_BOREHOLE_INFO) + 1:])
+                    elif line == cf.END_SECTION_TAG_BOREHOLE_INFO:
                         self.add_section(tmp_name, tmp_depth, tmp_length)
                         is_in_section = False
-                elif line == "#START SECTION\n":
+                elif line == cf.START_SECTION_TAG_BOREHOLE_INFO:
                     is_in_section = True
                     tmp_name, tmp_depth, tmp_length = '', -1, -1.
         file.close()

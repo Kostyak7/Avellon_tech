@@ -55,8 +55,8 @@ def get_num_file_by_default(base_name_: str, sensor_amount_: int) -> list:
     else:
         return [-1, -1]
     sensor_num = -1
-    if base_name_[-11].isalpha() and ord(base_name_[-11].lower()) - ord('a') < sensor_amount_:
-        sensor_num = ord(base_name_[-11].lower()) - ord('a')
+    if base_name_[8].isalpha() and ord(base_name_[8].lower()) - ord('a') < sensor_amount_:
+        sensor_num = ord(base_name_[8].lower()) - ord('a')
     else:
         return [-1, -1]
     return [measurement_num, sensor_num]
@@ -148,8 +148,8 @@ class SimpleItemListWidget(QWidget):
 
 def select_path_to_dir(parent_: QWidget = None, **kwargs) -> str:
     if 'dir' in kwargs:
-        return QFileDialog.getExistingDirectory(parent_, 'Select Folder', dir=kwargs['dir'])
-    return QFileDialog.getExistingDirectory(parent_, 'Select Folder')
+        return QFileDialog.getExistingDirectory(parent_, cf.SELECT_FOLDER_FILE_DIALOG_TITLE, dir=kwargs['dir'])
+    return QFileDialog.getExistingDirectory(parent_, cf.SELECT_FOLDER_FILE_DIALOG_TITLE)
 
 
 class ListWidget(QListWidget):
@@ -225,8 +225,8 @@ def select_path_to_files(filter_str_: str, parent_: QWidget = None, **kwargs) ->
 
 def select_path_to_one_file(filter_str_: str, parent_: QWidget = None, **kwargs) -> str:
     if 'dir' in kwargs:
-        return QFileDialog.getOpenFileName(parent_, 'Select File', dir=kwargs['dir'], filter=filter_str_)[0]
-    return QFileDialog.getOpenFileName(parent_, 'Select File', filter=filter_str_)[0]
+        return QFileDialog.getOpenFileName(parent_, cf.SELECT_FILE_FILE_DIALOG_TITLE, dir=kwargs['dir'], filter=filter_str_)[0]
+    return QFileDialog.getOpenFileName(parent_, cf.SELECT_FILE_FILE_DIALOG_TITLE, filter=filter_str_)[0]
 
 
 def get_last_project_path() -> str:
@@ -235,12 +235,12 @@ def get_last_project_path() -> str:
         os.mkdir(cf.CACHE_DIR_PATH)
         is_break = True
     if not os.path.isfile(cf.CACHE_FILE_INFO_PATH):
-        file = open(cf.CACHE_FILE_INFO_PATH, 'w', encoding='UTF-8')
+        file = open(cf.CACHE_FILE_INFO_PATH, 'w', encoding=cf.DEFAULT_ENCODING)
         file.close()
         is_break = True
     if is_break:
         return None
-    file = open(cf.CACHE_FILE_INFO_PATH, 'r', encoding='UTF-8')
+    file = open(cf.CACHE_FILE_INFO_PATH, 'r', encoding=cf.DEFAULT_ENCODING)
     project_path = file.readline().replace('/n', '')
     file.close()
     if len(project_path) < 1 or not os.path.isdir(project_path):
@@ -303,10 +303,28 @@ class HelpInfoPageWidget(QWidget):
         self.setLayout(core_layout)
 
 
-class HelpInfoDialog(QDialog):
-    def __init__(self, parent_: QWidget = None):
+class AbstractToolDialog(QDialog):
+    def __init__(self, name_: str, parent_: QWidget = None):
         super().__init__(parent_)
-        self.setWindowTitle('Help information')
+        self.id = uuid4()
+        self.name = name_
+        self.setWindowTitle(self.name)
+
+    def __all_widgets_to_layout(self) -> None: ...
+
+    def close(self) -> None:
+        super().close()
+
+    def cancel_action(self) -> None:
+        self.close()
+
+    def run(self) -> None:
+        self.show()
+
+
+class HelpInfoDialog(AbstractToolDialog):
+    def __init__(self, parent_: QWidget = None):
+        super().__init__(cf.HELP_INFO_DIALOG_TITLE, parent_)
         self.tab_widget = QTabWidget(self)
         self.tab_widget.addTab(HelpInfoPageWidget(cf.COMMON_HELP_INFO, self), 'Общее')
         self.tab_widget.addTab(HelpInfoPageWidget(cf.BOREHOLE_HELP_INFO, self), 'Настройка скважины')
@@ -321,62 +339,3 @@ class HelpInfoDialog(QDialog):
         core_layout = QVBoxLayout()
         core_layout.addWidget(self.tab_widget)
         self.setLayout(core_layout)
-    
-    def run(self) -> None:
-        self.show()
-
-
-class LoadLabel(QLabel):
-    def __init__(self, parent_: QWidget = None):
-        super().__init__(parent_)
-        self.setWindowFlag(Qt.FramelessWindowHint)
-        self.setScaledContents(True)
-        self.setMaximumWidth(200)
-        
-        self.movie = QMovie('resource/img/loading.gif')
-        self.setMovie(self.movie)
-    
-    def __set_actual_size(self, image_size_: QSize) -> QSize:
-        actual_size = QSize(200, 0)
-        actual_size.setHeight(image_size_.height() * actual_size.width() // image_size_.width())
-        self.setFixedSize(actual_size)
-    
-    def run(self) -> None:
-        self.movie.start()
-        self.__set_actual_size(self.movie.currentImage().size())
-        self.show()
-    
-    def stop(self) -> None:
-        self.movie.stop()
-        self.close()
-
-
-class Worker(QRunnable):
-    def __init__(self, executable_function_, *args, **kwargs) -> None:
-        super().__init__()
-        self.executable_function = executable_function_
-        self.args = args
-        self.kwargs = kwargs
-        
-    def run(self) -> None:
-        self.executable_function(*self.args, **self.kwargs)
-
-
-class ThreadPool:
-    def __init__(self):
-        self.threadpool = QThreadPool()
-        self.load_label = LoadLabel()
-        
-    def start_worker(self, executable_function_, is_load_label_: bool = True,  *args, **kwargs) -> None:
-        if is_load_label_:
-            self.load_label.run()
-
-        worker = Worker(executable_function_, *args, **kwargs)
-        self.threadpool.start(worker)
-
-        if is_load_label_:
-            self.load_label.stop()
-
-
-
-    

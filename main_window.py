@@ -5,16 +5,15 @@ from uuid import uuid4
 from time import gmtime, strftime
 from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QCheckBox, \
     QVBoxLayout, QHBoxLayout, QPushButton, QWidget, QFormLayout, QLayout, QMenuBar, \
-    QTableWidget, QTableWidgetItem, QLabel, QSlider, QDialog, QLineEdit, QComboBox
-from PySide6.QtGui import QScreen, QIcon, QPixmap, QIntValidator, QDoubleValidator, QPainter, QColor, QPen
+    QTableWidget, QTableWidgetItem, QLabel, QSlider, QLineEdit, QComboBox
+from PySide6.QtGui import QScreen, QIcon, QPixmap, QIntValidator, QDoubleValidator, QPainter, QPen
 from PySide6.QtCore import Qt, QPoint, QSize, QRect, QLine
 from PySide6.QtWidgets import QAbstractItemView
-from graph_widget import XYDataFrame, OscilloscopeGraphWidget, AmplitudeTimeGraphWidget,\
-    FrequencyResponseGraphWidget, WindRoseGraphWidget, MaxesDataFrame, DepthResponseGraphWidget
+from graph_widget import OscilloscopeGraphWidget, AmplitudeTimeGraphWidget,\
+    FrequencyResponseGraphWidget, WindRoseGraphWidget, DepthResponseGraphWidget
 from third_party import AbstractFunctor, HelpInfoDialog, SimpleItemListWidget, \
-    get_num_file_by_default, select_path_to_files, \
-    select_path_to_dir, select_path_to_one_file, ListWidget, AbstractWindowWidget, \
-    MyCheckBox, ButtonWidget, MessageBox, get_last_project_path
+    select_path_to_files, select_path_to_dir, ListWidget, AbstractWindowWidget, \
+    MyCheckBox, ButtonWidget, MessageBox, get_last_project_path, AbstractToolDialog
 from loadlabel import loading
 from borehole_logic import *
 from converter import ConverterDialog
@@ -35,7 +34,7 @@ import config as cf
 # DONE 11) Два раза открываются настройки скважины
 # DONE 12) project logic
 # DONE 13) cache
-# TODO 14) глубинный
+# DONE 14) глубинный
 # TODO 15) амплитудный для нескольких
 # TODO 16) разные средние
 # DONE 17) отслеживание варнингов
@@ -52,7 +51,13 @@ import config as cf
 # TODO 27) close event
 # TODO 28) pyinstaller for .exe
 # TODO 29) Предупреждение о неполности данных
-# TODO 30)
+# DONE 30) try catch for other thread
+# DONE 31) New modes for conversion
+# DONE 32) slider for depth
+# DONE 33) hide update button
+# TODO 34) update config
+# TODO 35)
+# TODO 36)
 
 
 class MainWindow(QMainWindow):
@@ -80,7 +85,7 @@ class MainWindow(QMainWindow):
             return
         if not os.path.isdir(cf.CACHE_DIR_PATH):
             os.mkdir(cf.CACHE_DIR_PATH)
-        file = open(cf.CACHE_FILE_INFO_PATH, 'w', encoding='UTF-8')
+        file = open(cf.CACHE_FILE_INFO_PATH, 'w', encoding=cf.DEFAULT_ENCODING)
         file.write('' if project_name_ is None else project_name_)
         file.close()
 
@@ -114,7 +119,8 @@ class MainMenuWidget(QWidget):
         self.button_list.add_item("Открыть проект", action=self.open_project_action)
         self.button_list.add_item("Выход", action=self.quit_action, shortcut="Shift+Esc")
 
-        self.update_button = QPushButton('Update', self, Qt.AlignLeft)
+        # self.update_button = QPushButton('Update', self, Qt.AlignLeft)
+        self.update_button = QPushButton('Update')
         self.update_button.clicked.connect(self.update_action)
         self.update_button.setMaximumWidth(160)
 
@@ -134,7 +140,7 @@ class MainMenuWidget(QWidget):
         core_layout.addStretch()
         core_layout.addLayout(center_layout)
         core_layout.addStretch()
-        core_layout.addWidget(self.update_button, Qt.AlignLeft | Qt.AlignBottom)
+        # core_layout.addWidget(self.update_button, Qt.AlignLeft | Qt.AlignBottom)
         self.setLayout(core_layout)
 
     def create_project_action(self) -> None:
@@ -148,20 +154,20 @@ class MainMenuWidget(QWidget):
         if len(project_path) < 1:
             return
         if not os.path.isdir(project_path):
-            MessageBox().warning('Not a dir', f"{project_path} - не является папкой!")
+            MessageBox().warning(cf.NOT_DIR_WARNING_TITTLE, cf.NOT_DIR_WARNING_MESSAGE_F(project_path))
             return
         self.main_window.run_borehole_menu(project_path)
     
     def update_action(self) -> None:
-        if pathlib.Path('app.bat').is_file():
-            os.system('start app.bat update')
+        if pathlib.Path(cf.EXE_FILENAME).is_file():
+            os.system(f'start {cf.EXE_FILENAME} update')
             self.main_window.exit()
 
     def quit_action(self) -> None:
         self.main_window.exit()
 
 
-class CreateProjectDialog(QDialog):
+class CreateProjectDialog(AbstractToolDialog):
     @staticmethod
     def get_project_name(parent_path_: str, name_: str, num_: int = 0) -> str:
         tmp_name = f'{name_}_{num_}'
@@ -171,11 +177,10 @@ class CreateProjectDialog(QDialog):
         return tmp_name
         
     def __init__(self, main_menu_widget_: MainMenuWidget):
-        super().__init__(main_menu_widget_)
+        super().__init__(cf.CREATE_PROJECT_DIALOG_TITLE, main_menu_widget_)
         self.main_menu_widget = main_menu_widget_
         self.parent_path = str(pathlib.Path().resolve() / cf.DEFAULT_PROJECT_FOLDER)
         self.project_name = CreateProjectDialog.get_project_name(self.parent_path, cf.DEFAULT_PROJECT_NAME)
-        self.setWindowTitle("Create project")
         self.setMinimumWidth(800)
         self.setWindowModality(Qt.ApplicationModal)
 
@@ -240,28 +245,23 @@ class CreateProjectDialog(QDialog):
 
     def accept_action(self) -> None:
         if len(self.project_name) < 1:
-            MessageBox().warning('Empty name', "Название проекта не может быть пустым")
+            MessageBox().warning(cf.EMPTY_NAME_WARNING_TITTLE, cf.EMPTY_PROJECT_NAME_WARNING_MESSAGE)
             return
         if self.project_name.find(' ') != -1:
-            MessageBox().warning('Uncorrect name', "Не корректное имя проекта")
+            MessageBox().warning(cf.INVALID_NAME_WARNING_TITTLE, cf.INVALID_PROJECT_NAME_WARNING_MESSAGE)
             return
         path = str(pathlib.Path(self.parent_path) / self.project_name)
         is_exist = os.path.exists(path)
         if is_exist:
             if not os.path.isdir(path):
-                MessageBox().warning('Not a dir', f"{path} - не является папкой!")
+                MessageBox().warning(cf.NOT_DIR_WARNING_TITTLE, cf.NOT_DIR_WARNING_MESSAGE_F(path))
                 return
             if len([f for f in pathlib.Path(path).glob('*')]):
-                MessageBox().warning(cf.NOT_EMPTY_FOLDER_WARNING_TITLE,
-                                    f"Выбранная папка: - {path} - содержит файлы!"
-                                    f"\nВыберете пустую или не существующую папку")
+                MessageBox().warning(cf.NOT_EMPTY_FOLDER_WARNING_TITLE, cf.NOT_EMPTY_FOLDER_WARNING_MESSAGE_F(path))
                 return
         else:
             os.mkdir(path)
         self.main_menu_widget.main_window.run_borehole_menu(path)
-        self.close()
-
-    def cancel_action(self) -> None:
         self.close()
 
     def run(self) -> None:
@@ -343,7 +343,7 @@ class BoreholeMenuWindowWidget(QWidget):
         super().__init__(main_window_)
         self.id = uuid4()
         if path_ is None or len(os.path.basename(path_)) < 1:
-            MessageBox().warning('Empty name', 'Пустое имя проекта!')
+            MessageBox().warning(cf.EMPTY_NAME_WARNING_TITTLE, cf.EMPTY_PROJECT_NAME_WARNING_MESSAGE)
             main_window_.run_main_menu()
             return
         self.name = os.path.basename(path_)
@@ -362,11 +362,6 @@ class BoreholeMenuWindowWidget(QWidget):
             'depth': DepthResponseGraphWindowWidget(self),
             'windrose': WindRoseGraphWindowWidget(self),
         }
-        # self.oscilloscope_window_widget = OscilloscopeGraphWindowWidget(self)
-        # self.frequency_window_widget = FrequencyResponseGraphWindowWidget(self)
-        # self.amplitude_window_widget = AmplitudeTimeGraphWindowWidget(self)
-        # self.depth_window_widget = DepthResponseGraphWindowWidget(self)
-        # self.windrose_window_widget = WindRoseGraphWindowWidget(self)
 
         top_menu_bar_init = self.TopMenuBarInit(self)
         self.__all_widgets_to_layout()
@@ -377,22 +372,12 @@ class BoreholeMenuWindowWidget(QWidget):
         core_layout.addWidget(self.borehole_menu_widget)
         for key in self.graph_window_widgets.keys():
             core_layout.addWidget(self.graph_window_widgets[key])
-        # core_layout.addWidget(self.oscilloscope_window_widget)
-        # core_layout.addWidget(self.frequency_window_widget)
-        # core_layout.addWidget(self.amplitude_window_widget)
-        # core_layout.addWidget(self.depth_window_widget)
-        # core_layout.addWidget(self.windrose_window_widget)
         self.setLayout(core_layout)
 
     def __deactivate_all(self, is_deactivate_: bool = True) -> None:
         self.borehole_menu_widget.activate(not is_deactivate_)
         for key in self.graph_window_widgets.keys():
             self.graph_window_widgets[key].activate(not is_deactivate_)
-        # self.oscilloscope_window_widget.activate(not is_deactivate_)
-        # self.frequency_window_widget.activate(not is_deactivate_)
-        # self.amplitude_window_widget.activate(not is_deactivate_)
-        # self.depth_window_widget.activate(not is_deactivate_)
-        # self.windrose_window_widget.activate(not is_deactivate_)
     
     def set_borehole_action(self) -> None:
         self.borehole_dialog.run()
@@ -418,28 +403,18 @@ class BoreholeMenuWindowWidget(QWidget):
 
     def plot_oscilloscope_action(self) -> None:
         self.__plot_graph_action_interface('oscilloscope')
-        # self.__deactivate_all()
-        # self.oscilloscope_window_widget.activate()
 
     def plot_frequency_resp_action(self) -> None:
         self.__plot_graph_action_interface('frequency')
-        # self.__deactivate_all()
-        # self.frequency_window_widget.activate()
 
     def plot_amplitude_time_action(self) -> None:
         self.__plot_graph_action_interface('amplitude')
-        # self.__deactivate_all()
-        # self.amplitude_window_widget.activate()
 
     def plot_depth_response_action(self) -> None:
         self.__plot_graph_action_interface('depth')
-        # self.__deactivate_all()
-        # self.depth_window_widget.activate()
 
     def plot_wind_rose_action(self) -> None:
         self.__plot_graph_action_interface('windrose')
-        # self.__deactivate_all()
-        # self.windrose_window_widget.activate()
 
 
 class BoreHoleMenuWidget(AbstractWindowWidget):
@@ -497,12 +472,10 @@ class BoreHoleMenuWidget(AbstractWindowWidget):
         self.graph_button_list.setVisible(False)
 
 
-class BoreHoleDialog(QDialog):
+class BoreHoleDialog(AbstractToolDialog):
     def __init__(self, borehole_: Borehole, parent_: QWidget = None):
-        super().__init__(parent_)
+        super().__init__(cf.BOREHOLE_SETTINGS_DIALOG_TITLE, parent_)
         self.borehole = borehole_
-
-        self.setWindowTitle("Borehole settings")
         self.setWindowModality(Qt.ApplicationModal)
         self.setMinimumSize(800, 500)
 
@@ -535,12 +508,12 @@ class BoreHoleDialog(QDialog):
         self.section_list_widget.add_widget(SectionWidget(name_, self.section_list_widget, depth_, length_, id_))
 
     def add_section_action(self) -> None:
-        len_default_name = len('name_')
+        len_default_name = len(cf.DEFAULT_SECTION_NAME)
         max_section_number = -1
         for section in self.section_list_widget.widget_list:
-            if section.name[:len_default_name] == 'name_' and section.name[len_default_name:].isdigit():
+            if section.name[:len_default_name] == cf.DEFAULT_SECTION_NAME and section.name[len_default_name:].isdigit():
                 max_section_number = max(int(section.name[len_default_name:]), max_section_number)
-        self.add_section('name_' + str(max_section_number + 1))
+        self.add_section(cf.DEFAULT_SECTION_NAME + str(max_section_number + 1))
 
     def save_all_sections(self, up_path_: str) -> None:
         borehole_path = self.borehole.path()
@@ -607,9 +580,6 @@ class BoreHoleDialog(QDialog):
                     section.depth = section_w.depth
                     section.length = section_w.length
         print('______________________________')
-
-    def cancel_action(self) -> None:
-        self.close()
 
     def run(self) -> None:
         self.section_list_widget.remove_all()
@@ -763,7 +733,7 @@ class StepWidget(AbstractBoreholeDialogItemWidget):
             file.delete_action()
 
     def add_files_action(self) -> None:
-        got_file_list = select_path_to_files(cf.FILE_DIALOG_CSV_FILTER, self, dir="data")
+        got_file_list = select_path_to_files(cf.FILE_DIALOG_CSV_FILTER, self, dir=cf.DEFAULT_DATA_FOLDER)
         for filename in got_file_list:
             self.add_file(filename)
 
@@ -959,20 +929,9 @@ class SectionWidget(AbstractBoreholeDialogItemWidget):
             step.save_all(section_path)
 
 
-class AbstractGraphToolDialog(QDialog):
-    def __init__(self, name_: str, parent_: QWidget = None):
-        super().__init__(parent_)
-        self.id = uuid4()
-        self.name = name_
-        self.setWindowTitle(self.name)
-    
-    def run(self) -> None:
-        self.show()
-
-
-class HideLineToolDialog(AbstractGraphToolDialog):
+class HideLineToolDialog(AbstractToolDialog):
     def __init__(self, parent_: QWidget = None):
-        super().__init__('Hiding lines', parent_)
+        super().__init__(cf.HIDING_LINES_DIALOG_TITLE, parent_)
         self.checkbox_list_widget = CheckBoxList(self)
         self.checkbox_list_widget.setMaximumSize(300, 300)
         self.__all_widgets_to_layout()
@@ -1110,7 +1069,7 @@ class OscilloscopeTableWidget(QTableWidget):
                 fkey = key
         if fkey is None:
             return
-        self.__table_init(row_count, 2, ["Файл", "Максимум, " + data_frames_[fkey][0].header['Data Uint']])
+        self.__table_init(row_count, 2, ["Файл", "Максимум, " + data_frames_[fkey][0].header[cf.DATA_UINT_HEADER]])
         for key in data_frames_:
             for i in range(len(data_frames_[key])):
                 lTWI = QTableWidgetItem(data_frames_[key][i].name)
@@ -1473,15 +1432,14 @@ class ChangerPipeWidget(Pipe, QWidget):
         self.sensors[3] = text_
 
 
-class CrackSettingsDialog(QDialog):
+class CrackSettingsDialog(AbstractToolDialog):
     def __init__(self, pipe_: Pipe, parent_: QWidget = None):
-        super().__init__(parent_)
+        super().__init__(cf.CRACK_SETTINGS_DIALOG_TITLE, parent_)
         self.pipe = pipe_
         self.pipe_settings_widget = ChangerPipeWidget(self, self.pipe.length, self.pipe.inner_d,
                                                       self.pipe.wall_thickness, self.pipe.sensors, self.pipe.direction)
         self.cracks_list_widget = ListWidget(self)
 
-        self.setWindowTitle("Cracks Settings")
         self.setWindowModality(Qt.ApplicationModal)
         self.setMinimumSize(800, 500)
 
@@ -1533,14 +1491,11 @@ class CrackSettingsDialog(QDialog):
         self.pipe.sensors = self.pipe_settings_widget.sensors
         self.pipe.direction = self.pipe_settings_widget.direction
 
-    def cancel_action(self):
-        self.close()
-
     def run(self):
         self.cracks_list_widget.remove_all()
         for crack in self.pipe.cracks:
             self.__add_crack(crack.side, crack.depth, crack.position_m)
-        self.exec()
+        self.show()
 
 
 class FrequencyResponseGraphWindowWidget(AbstractGraphWindowWidget):
@@ -1585,40 +1540,10 @@ class FrequencyResponseGraphWindowWidget(AbstractGraphWindowWidget):
 
 
 # ---------------- AmplitudeTime ----------------
-class AmplitudeTimeGraphWindowWidget(AbstractGraphWindowWidget):
-    def __init__(self, borehole_window_: BoreholeMenuWindowWidget):
-        super().__init__(borehole_window_)
-        self.plot_widget = AmplitudeTimeGraphWidget(dict(), self)
-        self.__all_widgets_to_layout()
-        self.activate(False)
-
-    def __all_widgets_to_layout(self) -> None:
-        core_layout = QVBoxLayout()
-        core_layout.addWidget(self.menu_bar)
-        core_layout.addWidget(self.plot_widget)
-        self.setLayout(core_layout)
-
-    @loading('checkbox_activate')
-    def plot_graph_action(self) -> None:
-        self.data_frames = self.borehole_window.borehole.get_step_maxes_dataframe_dict()
-    
-    def checkbox_activate(self) -> None:
-        if len(self.data_frames) < 1:
-            return
-        self.hide_line_dialog.remove_all()
-        for section_name in self.data_frames.keys():
-            for dataframe in self.data_frames[section_name]:
-                self.plot_widget.dict_data_x[section_name] = dataframe.tmp_value
-                self.hide_line_dialog.add_checkbox(section_name + '=sensor=' + dataframe.name,
-                                                       CheckBoxHideFunctor(dataframe, self), True)
-        self.replot_for_new_data()
-
-
-# ---------------- DepthResponseTime ----------------
-class DepthSettingsDialog(AbstractGraphToolDialog):
-    def __init__(self, depth_window_graph_):
-        super().__init__('Graph settings', depth_window_graph_)
-        self.depth_window_graph = depth_window_graph_
+class GraphSettingsDialog(AbstractToolDialog):
+    def __init__(self, window_graph_):
+        super().__init__(cf.GRAPH_SETTINGS_DIALOG_TITLE, window_graph_)
+        self.window_graph = window_graph_
         self.mean_mode = -1 # -1 means ARITHMETIC
         self.sensor_num = -1 # -1 means all sensors
         self.mean_editor = QComboBox(self)
@@ -1657,19 +1582,63 @@ class DepthSettingsDialog(AbstractGraphToolDialog):
         self.mean_editor.setVisible(self.sensor_num < 0)
 
     def accept_action(self) -> None:
-        self.depth_window_graph.replot_for_new_data()
+        self.window_graph.replot_for_new_data()
         self.close()
+        
 
-    def close(self) -> None:
-        super().close()
+class AmplitudeTimeGraphWindowWidget(AbstractGraphWindowWidget):
+    def __init__(self, borehole_window_: BoreholeMenuWindowWidget):
+        super().__init__(borehole_window_)
+        self.plot_widget = AmplitudeTimeGraphWidget(dict(), self)
+        
+        self.amplitude_settings_dialog = GraphSettingsDialog(self)
+        self.settings_menu_action_btn = self.tools_menu_btn.addAction('Настройки графика')
+        self.settings_menu_action_btn.triggered.connect(self.amplitude_settings_dialog.run)
+
+        self.__all_widgets_to_layout()
+        self.activate(False)
+
+    def __all_widgets_to_layout(self) -> None:
+        core_layout = QVBoxLayout()
+        core_layout.addWidget(self.menu_bar)
+        core_layout.addWidget(self.plot_widget)
+        self.setLayout(core_layout)
+
+    def activate(self, is_active_: bool = True) -> None:
+        self.amplitude_settings_dialog.close()
+        super().activate(is_active_)
+
+    @loading('checkbox_activate')
+    def plot_graph_action(self) -> None:
+        self.data_frames = self.borehole_window.borehole.get_step_maxes_dataframe_dict()
+    
+    def checkbox_activate(self) -> None:
+        if len(self.data_frames) < 1:
+            return
+        self.hide_line_dialog.remove_all()
+        for section_name in self.data_frames.keys():
+            for dataframe in self.data_frames[section_name]:
+                self.plot_widget.dict_data_x[section_name] = dataframe.tmp_value
+                self.hide_line_dialog.add_checkbox(section_name + '=sensor=' + dataframe.name,
+                                                       CheckBoxHideFunctor(dataframe, self), True)
+        self.replot_for_new_data()
+    
+    def replot_for_new_data(self) -> None:
+        super().replot_for_new_data()
+        # if self.depth_settings_dialog.sensor_num == -1:
+        #     self.plot_widget.recreate(self.data_frames, sensor_num=-1,
+        #                               mean_mode=self.depth_settings_dialog.mean_mode)
+        # else:
+        #     self.plot_widget.recreate(self.data_frames, sensor_num=self.depth_settings_dialog.sensor_num)
 
 
+# ---------------- DepthResponseTime ----------------
 class DepthResponseGraphWindowWidget(AbstractGraphWindowWidget):
     def __init__(self, borehole_window_: BoreholeMenuWindowWidget):
         super().__init__(borehole_window_)
         self.plot_widget = DepthResponseGraphWidget(dict(), self)
 
-        self.depth_settings_dialog = DepthSettingsDialog(self)
+        self.depth_settings_dialog = GraphSettingsDialog(self)
         self.settings_menu_action_btn = self.tools_menu_btn.addAction('Настройки графика')
         self.settings_menu_action_btn.triggered.connect(self.depth_settings_dialog.run)
 
@@ -1711,8 +1680,10 @@ class DepthResponseGraphWindowWidget(AbstractGraphWindowWidget):
 
         self.replot_for_new_data()
 
-    # @loading('checkbox_activate')
+    @loading('checkbox_activate')
     def replot_for_new_data(self) -> None:
+        if len(self.step_nums_list) < 1:
+            return
         if self.depth_settings_dialog.sensor_num == -1:
             self.plot_widget.recreate(self.data_frames, sensor_num=-1,
                                       step_num=self.step_nums_list[self.slider.value() - 1],

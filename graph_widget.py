@@ -41,7 +41,7 @@ class XYDataFrame(AbstractDataFrame):
         is_exception = False
 
         if not os.path.exists(self.filename) or not os.path.isfile(self.filename):
-            MessageBox().warning(cf.FILE_NOT_EXIST_WARNING_TITLE, f"{self.filename} - не существует или не является файлом!")
+            MessageBox().warning(cf.FILE_NOT_EXIST_WARNING_TITLE, cf.FILE_NOT_EXIST_WARNING_MESSAGE_F(self.filename))
 
         else:
             self.data = pd.read_csv(self.filename, header=None)
@@ -73,11 +73,11 @@ class XYDataFrame(AbstractDataFrame):
             if dot_index == -1 or \
                     self.data.iloc[i][0][:dot_index] not in cf.CSV_FILE_HEADER_CONTENT:
                 raise MyWarning(cf.INCORRECT_FILE_CONTENT_WARNING_TITLE,
-                                f"Выбранный файл: - {self.filename} - имеет неправильное наполнение в хедере!")
+                                cf.INCORRECT_FILE_HEADER_WARNING_MESSAGE_F(self.filename))
             header_name = self.data.iloc[i][0][:dot_index]
             res[header_name] = cf.CSV_FILE_HEADER_CONTENT[header_name] \
                 .get(self.data.iloc[i][0][dot_index + 1:])
-            if header_name == "Time Base":
+            if header_name == cf.TIME_BASE_HEADER:
                 res[header_name] *= 1 if self.data.iloc[i][0][dot_index + 1:].find('mV') else 10**-3
         return res
 
@@ -172,11 +172,11 @@ class OscilloscopeGraphWidget(AbstractQtGraphWidget):
         self.dict_data_x = dict()
         for key in self.data_frames.keys():
             for dataframe in self.data_frames[key]:
-                if dataframe.header['Data points'] not in self.dict_data_x:
-                    self.dict_data_x[dataframe.header['Data points']] = dict()
-                if dataframe.header['Time Base'] not in self.dict_data_x[dataframe.header['Data points']]:
-                    self.dict_data_x[dataframe.header['Data points']][dataframe.header['Time Base']] \
-                        = XYDataFrame.get_data_x(dataframe.header['Data points'], dataframe.header['Time Base'])
+                if dataframe.header[cf.DATA_POINTS_HEADER] not in self.dict_data_x:
+                    self.dict_data_x[dataframe.header[cf.DATA_POINTS_HEADER]] = dict()
+                if dataframe.header[cf.TIME_BASE_HEADER] not in self.dict_data_x[dataframe.header[cf.DATA_POINTS_HEADER]]:
+                    self.dict_data_x[dataframe.header[cf.DATA_POINTS_HEADER]][dataframe.header[cf.TIME_BASE_HEADER]] \
+                        = XYDataFrame.get_data_x(dataframe.header[cf.DATA_POINTS_HEADER], dataframe.header[cf.TIME_BASE_HEADER])
 
     def graph_init(self) -> None:
         self.legend.clear()
@@ -188,12 +188,12 @@ class OscilloscopeGraphWidget(AbstractQtGraphWidget):
                 if color_i >= len(cf.COLOR_NAMES):
                     color_i = 0
                 if c >= len(self.lines):
-                    self.lines.append(self.plot(self.dict_data_x[self.data_frames[key][i].header['Data points']]
-                                                [self.data_frames[key][i].header['Time Base']]['x'],
+                    self.lines.append(self.plot(self.dict_data_x[self.data_frames[key][i].header[cf.DATA_POINTS_HEADER]]
+                                                [self.data_frames[key][i].header[cf.TIME_BASE_HEADER]]['x'],
                                                 self.data_frames[key][i].data["y"], pen=mkPen(cf.COLOR_NAMES[color_i])))
                 elif self.data_frames[key][i].active:
-                    self.lines[c].setData(self.dict_data_x[self.data_frames[key][i].header['Data points']]
-                                          [self.data_frames[key][i].header['Time Base']]['x'],
+                    self.lines[c].setData(self.dict_data_x[self.data_frames[key][i].header[cf.DATA_POINTS_HEADER]]
+                                          [self.data_frames[key][i].header[cf.TIME_BASE_HEADER]]['x'],
                                           self.data_frames[key][i].data["y"])
                 self.legend.addItem(self.lines[c], self.data_frames[key][i].name)
                 c += 1
