@@ -239,6 +239,8 @@ class FrequencyResponseGraphWidget(AbstractQtGraphWidget):
 class AmplitudeTimeGraphWidget(AbstractQtGraphWidget):
     def __init__(self, data_frames_: dict, parent_: QWidget = None):
         super().__init__(data_frames_, parent_)
+        self.mean_mode = -1
+        self.sensor_num = -1
         self.graph_init()
         self.setTitle("Зависимость амплитуды во времени")
         self.setLabel('left', 'Значение')
@@ -267,6 +269,11 @@ class AmplitudeTimeGraphWidget(AbstractQtGraphWidget):
                 self.legend.addItem(self.lines[c], self.data_frames[key][i].name)
                 c += 1
                 color_i += 1
+
+    def recreate(self, data_frames_, **kwargs) -> None:
+        self.mean_mode = kwargs['mean_mode'] if 'mean_mode' in kwargs else 0
+        self.sensor_num = kwargs['sensor_num'] if 'sensor_num' in kwargs else -1
+        super().recreate(data_frames_, **kwargs)
 
 
 class DepthResponseGraphWidget(AbstractQtGraphWidget):

@@ -411,6 +411,25 @@ class Section:
             dataframes_list.append(maxes_dataframe)
         return dataframes_list
 
+    def get_step_maxes_dataframe_dict(self) -> dict:
+        dataframe_dict = dict()
+        tmp_dict = dict()
+        # dataframe_dict[-100] = list()
+
+        # dataframe_dict[0], dataframe_dict[1] = self.get_step_maxes_dataframe_list(), dict()
+        for dataframe in self.get_step_maxes_dataframe_list():
+            dataframe_dict[int(dataframe.name)] = dataframe
+            i = 0
+            for x_ in dataframe.tmp_value['x']:
+                if x_ not in tmp_dict:
+                    tmp_dict[x_] = list()
+                tmp_dict[x_].append(dataframe.data['y'][i])
+                i += 1
+        for x_ in tmp_dict.keys():
+
+
+        return dataframe_dict
+
 
 class Borehole:
     def __init__(self, name_: str, path_: str, id_: str = None):
@@ -537,7 +556,7 @@ class Borehole:
     def get_step_maxes_dataframe_dict(self) -> dict:
         dataframes_dict = dict()
         for section in self.section_list:
-            dataframes_dict[section.name] = section.get_step_maxes_dataframe_list()
+            dataframes_dict[section.name] = section.get_step_maxes_dataframe_dict()
         return dataframes_dict
 
     def get_step_depth_dataframe_dict(self):
@@ -577,7 +596,7 @@ class Borehole:
             file.write(cf.START_SECTION_TAG_BOREHOLE_INFO)
             file.write(cf.SECTION_NAME_BOREHOLE_INFO_F(section.name))
             file.write(cf.SECTION_DEPTH_BOREHOLE_INFO_F(section.depth))
-            file.write(cf.SECTION_LENGTH_BOREHOLE_INFO(section.length))
+            file.write(cf.SECTION_LENGTH_BOREHOLE_INFO_F(section.length))
             file.write(cf.END_SECTION_TAG_BOREHOLE_INFO)
         file.write(cf.END_SECTIONS_TAG_BOREHOLE_INFO)
         file.close()
