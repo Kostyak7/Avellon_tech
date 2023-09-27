@@ -240,7 +240,7 @@ class Step:
 
 
 class Section:
-    def __init__(self, name_: str, borehole_path_: str, depth_: int = 0, length_: float = 0., id_: str = None):
+    def __init__(self, name_: str, borehole_path_: str, depth_: int = 0, length_: float = cf.DEFAULT_SECTION_LENGTH, id_: str = None):
         self.name = name_
         self.depth = depth_
         self.length = length_
@@ -381,9 +381,6 @@ class Section:
         for i in range(len(tmp_list)):
             dataframes_list.append(MaxesDataFrame(str(i), [] if tmp_list[i] is None else tmp_list[i]))
         return dataframes_list
-
-    def get_sensor_maxes_dataframe_list(self) -> None:
-        dataframes_list = []
 
     def get_maxes_dataframe_list(self) -> list:
         dataframes_list = list()

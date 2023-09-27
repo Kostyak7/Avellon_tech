@@ -35,15 +35,15 @@ import config as cf
 # DONE 12) project logic
 # DONE 13) cache
 # DONE 14) глубинный
-# TODO 15) амплитудный для нескольких
-# TODO 16) разные средние
+# DONE 15) амплитудный для нескольких
+# DONE 16) разные средние
 # DONE 17) отслеживание варнинтов
 # DONE 18) git update
 # DONE 18) рестуктурирование окна скважины
 # DONE 19) edit pathedit
 # DONE 20) load dialog
 # DONE 21) tools for graphs
-# TODO 22) settings of borehole
+# TODO 22) settings and information of borehole
 # DONE 23) check minimum possible name for borehole and sections
 # DONE 24) Help window for each graph
 # TODO 25) Change oscilloscope graph size
@@ -554,7 +554,6 @@ class BoreHoleDialog(AbstractToolDialog):
                     print('\t\tf\t', file.path)
 
         self.borehole.correlate_data()
-        self.borehole.save_info_to_file()
 
         print('______________________________')
         print("OUT:", self.borehole.path())
@@ -585,6 +584,7 @@ class BoreHoleDialog(AbstractToolDialog):
                     section.depth = section_w.depth
                     section.length = section_w.length
         print('______________________________')
+        self.borehole.save_info_to_file()
 
     def run(self) -> None:
         self.section_list_widget.remove_all()
@@ -1748,7 +1748,7 @@ class DepthResponseGraphWindowWidget(AbstractGraphWindowWidget):
         super().__init__(borehole_window_)
         self.plot_widget = DepthResponseGraphWidget(dict(), self)
 
-        self.graph_settings_dialog = GraphSettingsDialog(self)
+        self.graph_settings_dialog = DepthGraphSettingsDialog(self)
         self.settings_menu_action_btn = self.tools_menu_btn.addAction('Настройки графика')
         self.settings_menu_action_btn.triggered.connect(self.graph_settings_dialog.run)
 
@@ -1790,7 +1790,7 @@ class DepthResponseGraphWindowWidget(AbstractGraphWindowWidget):
 
         self.replot_for_new_data()
 
-    @loading('checkbox_activate')
+    # @loading()
     def replot_for_new_data(self) -> None:
         if len(self.step_nums_list) < 1:
             return

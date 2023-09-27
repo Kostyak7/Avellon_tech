@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from uuid import uuid4
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
+from PySide6.QtCore import QPoint, QRect
 from pyqtgraph import PlotWidget, mkPen
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
@@ -322,13 +323,26 @@ class DepthResponseGraphWidget(AbstractQtGraphWidget):
         color_i, c = 0, 0
         if self.step_num not in self.data_frames:
             return
+        range_list = {'x': [None, None], 'y': [None, None]}
         for section_depth in self.data_frames[self.step_num].keys():
             if self.mean_mode >= 0 and self.sensor_num not in self.data_frames[self.step_num][section_depth]:
                 continue
             if color_i >= len(cf.COLOR_NAMES):
                 color_i = 0
             data_y_list = [section_depth + 8, section_depth]
+            if range_list['y'][0] is None:
+                range_list['y'][0] = data_y_list[1]
+            if range_list['y'][1] is None:
+                range_list['y'][1] = data_y_list[0]
+            range_list['y'][0] = min(range_list['y'][0], data_y_list[1])
+            range_list['y'][1] = max(range_list['y'][1], data_y_list[0])
             data_x_list = [self.data_frames[self.step_num][section_depth][self.mean_mode if self.mean_mode < 0 else self.sensor_num]] * 2
+            if range_list['x'][0] is None:
+                range_list['x'][0] = data_x_list[0]
+            if range_list['x'][1] is None:
+                range_list['x'][1] = data_x_list[1]
+            range_list['x'][0] = min(range_list['x'][0], data_x_list[0])
+            range_list['x'][1] = max(range_list['x'][1], data_x_list[1])
             if c >= len(self.lines):
                 self.lines.append(self.plot(data_x_list, data_y_list, pen=mkPen(cf.COLOR_NAMES[color_i], width=5)))
             else:
@@ -336,6 +350,9 @@ class DepthResponseGraphWidget(AbstractQtGraphWidget):
             self.legend.addItem(self.lines[c], 'section=' + str(section_depth))
             c += 1
             color_i += 1
+        rect = QRect(QPoint(range_list['x'][0], range_list['y'][1]), QPoint(range_list['x'][1], range_list['y'][0]))
+        self.setXRange(range_list['x'][0], range_list['x'][1], padding=2.0)
+        self.setYRange(range_list['y'][0], range_list['y'][1], padding=0.1)
 
     def recreate(self, data_frames_, **kwargs) -> None:
         self.mean_mode = kwargs['mean_mode'] if 'mean_mode' in kwargs else 0
