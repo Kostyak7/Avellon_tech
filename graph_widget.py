@@ -239,6 +239,7 @@ class FrequencyResponseGraphWidget(AbstractQtGraphWidget):
 class AmplitudeTimeGraphWidget(AbstractQtGraphWidget):
     def __init__(self, data_frames_: dict, parent_: QWidget = None):
         super().__init__(data_frames_, parent_)
+        self.section_name_mode = None
         self.mean_mode = -1
         self.sensor_num = -1
         self.graph_init()
@@ -255,22 +256,45 @@ class AmplitudeTimeGraphWidget(AbstractQtGraphWidget):
         if len(self.data_frames.keys()) < 1:
             return
         color_i, c = 0, 0
-        for key in self.data_frames.keys():
-            for i in range(len(self.data_frames[key])):
+        if self.section_name_mode is not None:
+            if self.section_name_mode not in self.data_frames:
+                return
+            for i in self.data_frames[self.section_name_mode].keys():
+                if i < 0:
+                    continue
                 if color_i >= len(cf.COLOR_NAMES):
                     color_i = 0
                 if c >= len(self.lines):
-                    self.lines.append(self.plot(self.dict_data_x[key]['x'],
+                    self.lines.append(self.plot(self.dict_data_x[self.section_name_mode],
+                                                self.data_frames[self.section_name_mode][i].data["y"],
+                                                pen=mkPen(cf.COLOR_NAMES[color_i])))
+                elif self.data_frames[self.section_name_mode][i].active:
+                    self.lines[c].setData(self.dict_data_x[self.section_name_mode],
+                                          self.data_frames[self.section_name_mode][i].data["y"])
+                self.legend.addItem(self.lines[c], self.data_frames[self.section_name_mode][i].name)
+                c += 1
+                color_i += 1
+        else:
+            i = self.mean_mode if self.mean_mode < 0 else self.sensor_num
+            for key in self.data_frames.keys():
+                if i not in self.data_frames[key]:
+                    continue
+                if color_i >= len(cf.COLOR_NAMES):
+                    color_i = 0
+                print(c, key, i, self.data_frames, self.dict_data_x, sep='\n')
+                if c >= len(self.lines):
+                    self.lines.append(self.plot(self.dict_data_x[key],
                                                 self.data_frames[key][i].data["y"],
                                                 pen=mkPen(cf.COLOR_NAMES[color_i])))
                 elif self.data_frames[key][i].active:
-                    self.lines[c].setData(self.dict_data_x[key]['x'],
+                    self.lines[c].setData(self.dict_data_x[key],
                                           self.data_frames[key][i].data["y"])
                 self.legend.addItem(self.lines[c], self.data_frames[key][i].name)
                 c += 1
                 color_i += 1
 
     def recreate(self, data_frames_, **kwargs) -> None:
+        self.section_name_mode = kwargs['section_name'] if 'section_name' in kwargs else None
         self.mean_mode = kwargs['mean_mode'] if 'mean_mode' in kwargs else 0
         self.sensor_num = kwargs['sensor_num'] if 'sensor_num' in kwargs else -1
         super().recreate(data_frames_, **kwargs)

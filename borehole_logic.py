@@ -412,22 +412,39 @@ class Section:
         return dataframes_list
 
     def get_step_maxes_dataframe_dict(self) -> dict:
+        if len(self.step_list) < 1:
+            return None
         dataframe_dict = dict()
         tmp_dict = dict()
-        # dataframe_dict[-100] = list()
-
-        # dataframe_dict[0], dataframe_dict[1] = self.get_step_maxes_dataframe_list(), dict()
+        mean_x_list = []
         for dataframe in self.get_step_maxes_dataframe_list():
             dataframe_dict[int(dataframe.name)] = dataframe
             i = 0
             for x_ in dataframe.tmp_value['x']:
                 if x_ not in tmp_dict:
+                    mean_x_list.append(x_)
                     tmp_dict[x_] = list()
                 tmp_dict[x_].append(dataframe.data['y'][i])
                 i += 1
-        for x_ in tmp_dict.keys():
-
-
+        mean_x_list.sort()
+        mean_list = []
+        median_list = []
+        geometric_mean_list= []
+        harmonic_mean_list = []
+        median_grouped_list = []
+        for x_ in mean_x_list:
+            mean_list.append(st.mean(tmp_dict[x_]))
+            median_list.append(st.median(tmp_dict[x_]))
+            geometric_mean_list.append(st.geometric_mean(tmp_dict[x_]))
+            harmonic_mean_list.append(st.harmonic_mean(tmp_dict[x_]))
+            median_grouped_list.append(st.median_grouped(tmp_dict[x_]))
+        dataframe_dict[-1] = MaxesDataFrame('mean-section=' + self.name, mean_list)
+        dataframe_dict[-2] = MaxesDataFrame('median-section=' + self.name, median_list)
+        dataframe_dict[-3] = MaxesDataFrame('geometric_mean-section=' + self.name, geometric_mean_list)
+        dataframe_dict[-4] = MaxesDataFrame('harmonic_mean-section=' + self.name, harmonic_mean_list)
+        dataframe_dict[-5] = MaxesDataFrame('median_grouped-section=' + self.name, median_grouped_list)
+        for i in range(1, 6):
+            dataframe_dict[-i].tmp_value = mean_x_list
         return dataframe_dict
 
 
@@ -556,7 +573,9 @@ class Borehole:
     def get_step_maxes_dataframe_dict(self) -> dict:
         dataframes_dict = dict()
         for section in self.section_list:
-            dataframes_dict[section.name] = section.get_step_maxes_dataframe_dict()
+            tmp_dict = section.get_step_maxes_dataframe_dict()
+            if tmp_dict is not None:
+                dataframes_dict[section.name] = tmp_dict
         return dataframes_dict
 
     def get_step_depth_dataframe_dict(self):

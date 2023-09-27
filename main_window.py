@@ -57,7 +57,8 @@ import config as cf
 # DONE 33) hide update button
 # DONE 34) update config
 # TODO 35) Implement Qt Designer
-# TODO 36)
+# TODO 36) View on depth graph
+# TODO 37)
 
 
 # для одной секции - для всех
@@ -1640,6 +1641,16 @@ class AmplitudeGraphSettingsDialog(GraphSettingsDialog):
     def current_section_changed_action(self, index_: int) -> None:
         pass
 
+    def get_current_section(self) -> str:
+        if len(self.section_list) < 1:
+            return None
+        return self.section_list[self.current_section_editor.currentIndex() \
+            if len(self.section_list) > self.current_section_editor.currentIndex() else 0]
+
+    def accept_action(self) -> None:
+        self.window_graph.checkbox_activate()
+        self.close()
+
 
 class AmplitudeTimeGraphWindowWidget(AbstractGraphWindowWidget):
     def __init__(self, borehole_window_: BoreholeMenuWindowWidget):
@@ -1672,20 +1683,43 @@ class AmplitudeTimeGraphWindowWidget(AbstractGraphWindowWidget):
         if len(self.data_frames) < 1:
             return
         self.hide_line_dialog.remove_all()
-        for section_name in self.data_frames.keys():
-            for dataframe in self.data_frames[section_name]:
-                self.plot_widget.dict_data_x[section_name] = dataframe.tmp_value
-                self.hide_line_dialog.add_checkbox(section_name + '=sensor=' + dataframe.name,
+        if self.graph_settings_dialog.section_mode == 0:
+            section_name = self.graph_settings_dialog.get_current_section()
+            if section_name is None or section_name not in self.data_frames:
+                return
+            for k_ in self.data_frames[section_name].keys():
+                if k_ >= 0:
+                    dataframe = self.data_frames[section_name][k_]
+                    self.plot_widget.dict_data_x[section_name] = dataframe.tmp_value['x']
+                    self.hide_line_dialog.add_checkbox(section_name + '=sensor=' + dataframe.name,
                                                        CheckBoxHideFunctor(dataframe, self), True)
+        else:
+            for section_name in self.data_frames.keys():
+                if self.graph_settings_dialog.sensor_num > -1:
+                    dataframe = self.data_frames[section_name][self.graph_settings_dialog.sensor_num]
+                    self.plot_widget.dict_data_x[section_name] = dataframe.tmp_value['x']
+                    self.hide_line_dialog.add_checkbox(section_name + '=sensor=' + dataframe.name,
+                                                       CheckBoxHideFunctor(dataframe, self), True)
+                else:
+                    dataframe = self.data_frames[section_name][self.graph_settings_dialog.mean_mode]
+                    self.plot_widget.dict_data_x[section_name] = dataframe.tmp_value
+                    self.hide_line_dialog.add_checkbox(dataframe.name, CheckBoxHideFunctor(dataframe, self), True)
         self.replot_for_new_data()
-    
+
+    # для одной секции - для всех
+    # выбор секции       выбор датчика - для всех
+    # 		   	  	                     выбор среднего
+
     def replot_for_new_data(self) -> None:
-        super().replot_for_new_data()
-        # if self.depth_settings_dialog.sensor_num == -1:
-        #     self.plot_widget.recreate(self.data_frames, sensor_num=-1,
-        #                               mean_mode=self.depth_settings_dialog.mean_mode)
-        # else:
-        #     self.plot_widget.recreate(self.data_frames, sensor_num=self.depth_settings_dialog.sensor_num)
+        if self.graph_settings_dialog.section_mode == 0:
+            section_name = self.graph_settings_dialog.get_current_section()
+            if section_name is None:
+                return
+            self.plot_widget.recreate(self.data_frames, section_name=section_name)
+        elif self.graph_settings_dialog.sensor_num == -1:
+            self.plot_widget.recreate(self.data_frames, sensor_num=-1, mean_mode=self.graph_settings_dialog.mean_mode)
+        else:
+            self.plot_widget.recreate(self.data_frames, sensor_num=self.graph_settings_dialog.sensor_num)
 
 
 # ---------------- DepthResponseTime ----------------
