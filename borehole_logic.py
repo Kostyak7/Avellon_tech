@@ -403,7 +403,7 @@ class Section:
             for ms_ in maxes_steps_dict[sensor_num]:
                 maxes.append(ms_[0])
                 tmp_dict['x'].append(ms_[1])
-            maxes_dataframe = MaxesDataFrame(str(sensor_num), maxes)
+            maxes_dataframe = MaxesDataFrame(str(sensor_num), maxes, x_list=tmp_dict['x'])
             maxes_dataframe.tmp_value = tmp_dict
             dataframes_list.append(maxes_dataframe)
         return dataframes_list
@@ -435,11 +435,11 @@ class Section:
             geometric_mean_list.append(st.geometric_mean(tmp_dict[x_]))
             harmonic_mean_list.append(st.harmonic_mean(tmp_dict[x_]))
             median_grouped_list.append(st.median_grouped(tmp_dict[x_]))
-        dataframe_dict[-1] = MaxesDataFrame('mean-section=' + self.name, mean_list)
-        dataframe_dict[-2] = MaxesDataFrame('median-section=' + self.name, median_list)
-        dataframe_dict[-3] = MaxesDataFrame('geometric_mean-section=' + self.name, geometric_mean_list)
-        dataframe_dict[-4] = MaxesDataFrame('harmonic_mean-section=' + self.name, harmonic_mean_list)
-        dataframe_dict[-5] = MaxesDataFrame('median_grouped-section=' + self.name, median_grouped_list)
+        dataframe_dict[-1] = MaxesDataFrame('mean-section=' + self.name, mean_list, x_list=mean_x_list)
+        dataframe_dict[-2] = MaxesDataFrame('median-section=' + self.name, median_list, x_list=mean_x_list)
+        dataframe_dict[-3] = MaxesDataFrame('geometric_mean-section=' + self.name, geometric_mean_list, x_list=mean_x_list)
+        dataframe_dict[-4] = MaxesDataFrame('harmonic_mean-section=' + self.name, harmonic_mean_list, x_list=mean_x_list)
+        dataframe_dict[-5] = MaxesDataFrame('median_grouped-section=' + self.name, median_grouped_list, x_list=mean_x_list)
         for i in range(1, 6):
             dataframe_dict[-i].tmp_value = mean_x_list
         return dataframe_dict

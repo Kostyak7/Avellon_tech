@@ -57,13 +57,12 @@ import config as cf
 # DONE 33) hide update button
 # DONE 34) update config
 # TODO 35) Implement Qt Designer
-# TODO 36) View on depth graph
-# TODO 37)
+# TODO 36) View on graph
+# TODO 37) амлитудный в онтносительных
+# TODO 38)
+# TODO 39)
+# TODO 40)
 
-
-# для одной секции - для всех
-# выбор секции       выбор датчика - для всех
-# 		   	  	                     выбор среднего
 
 class MainWindow(QMainWindow):
     def __init__(self, app_: QApplication):
@@ -1593,8 +1592,9 @@ class AmplitudeGraphSettingsDialog(GraphSettingsDialog):
     def __init__(self, window_graph_):
         super().__init__(window_graph_)
         self.section_mode = 0
-        # self.current_section: str = None
+        self.is_relative = False
         self.section_list = []
+        self.relative_checkbox = QCheckBox("Абсолютное значение", self)
         self.section_mode_editor = QComboBox(self)
         self.current_section_editor = QComboBox(self)
         self._editors_init()
@@ -1602,6 +1602,7 @@ class AmplitudeGraphSettingsDialog(GraphSettingsDialog):
 
     def __all_widgets_to_layout(self) -> None:
         core_layout = QVBoxLayout()
+        core_layout.addWidget(self.relative_checkbox)
         flo = QFormLayout()
         flo.addRow('Отображение секций', self.section_mode_editor)
         flo.addRow('Выбор секции', self.current_section_editor)
@@ -1613,6 +1614,9 @@ class AmplitudeGraphSettingsDialog(GraphSettingsDialog):
 
     def _editors_init(self) -> None:
         super()._editors_init()
+        self.relative_checkbox.setChecked(not self.is_relative)
+        self.relative_checkbox.stateChanged.connect(self.relative_checkbox_action)
+
         self.section_mode_editor.addItems(["Одна секция", "Все доступные секции"])
         self.section_mode_editor.currentIndexChanged.connect(self.section_mode_changed_action)
         self.section_mode_editor.setCurrentIndex(self.section_mode)
@@ -1632,11 +1636,14 @@ class AmplitudeGraphSettingsDialog(GraphSettingsDialog):
         self.current_section_editor.addItems(self.section_list)
         self.current_section_editor.setCurrentIndex(0)
 
+    def relative_checkbox_action(self, state_) -> None:
+        self.is_relative = state_ == 0
+
     def section_mode_changed_action(self, index_: int) -> None:
         self.section_mode = index_
         self.current_section_editor.setVisible(self.section_mode == 0)
         self.sensors_editor.setVisible(self.section_mode != 0)
-        self.mean_editor.setVisible(self.section_mode != 0)
+        self.mean_editor.setVisible(self.section_mode != 0 and self.sensor_num < 0)
 
     def current_section_changed_action(self, index_: int) -> None:
         pass
@@ -1680,6 +1687,7 @@ class AmplitudeTimeGraphWindowWidget(AbstractGraphWindowWidget):
         self.data_frames = self.borehole_window.borehole.get_step_maxes_dataframe_dict()
     
     def checkbox_activate(self) -> None:
+        print(self.data_frames)
         if len(self.data_frames) < 1:
             return
         self.hide_line_dialog.remove_all()
@@ -1696,6 +1704,8 @@ class AmplitudeTimeGraphWindowWidget(AbstractGraphWindowWidget):
         else:
             for section_name in self.data_frames.keys():
                 if self.graph_settings_dialog.sensor_num > -1:
+                    if self.graph_settings_dialog.sensor_num not in self.data_frames[section_name]:
+                        continue
                     dataframe = self.data_frames[section_name][self.graph_settings_dialog.sensor_num]
                     self.plot_widget.dict_data_x[section_name] = dataframe.tmp_value['x']
                     self.hide_line_dialog.add_checkbox(section_name + '=sensor=' + dataframe.name,
@@ -1711,15 +1721,16 @@ class AmplitudeTimeGraphWindowWidget(AbstractGraphWindowWidget):
     # 		   	  	                     выбор среднего
 
     def replot_for_new_data(self) -> None:
+        print("RELATIVE: ---------- ", self.graph_settings_dialog.is_relative)
         if self.graph_settings_dialog.section_mode == 0:
             section_name = self.graph_settings_dialog.get_current_section()
             if section_name is None:
                 return
-            self.plot_widget.recreate(self.data_frames, section_name=section_name)
+            self.plot_widget.recreate(self.data_frames, section_name=section_name, is_relative=self.graph_settings_dialog.is_relative)
         elif self.graph_settings_dialog.sensor_num == -1:
-            self.plot_widget.recreate(self.data_frames, sensor_num=-1, mean_mode=self.graph_settings_dialog.mean_mode)
+            self.plot_widget.recreate(self.data_frames, sensor_num=-1, mean_mode=self.graph_settings_dialog.mean_mode, is_relative=self.graph_settings_dialog.is_relative)
         else:
-            self.plot_widget.recreate(self.data_frames, sensor_num=self.graph_settings_dialog.sensor_num)
+            self.plot_widget.recreate(self.data_frames, sensor_num=self.graph_settings_dialog.sensor_num, is_relative=self.graph_settings_dialog.is_relative)
 
 
 # ---------------- DepthResponseTime ----------------

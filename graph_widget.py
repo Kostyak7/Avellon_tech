@@ -99,9 +99,11 @@ class XYDataFrame(AbstractDataFrame):
 
 
 class MaxesDataFrame(AbstractDataFrame):
-    def __init__(self, name_: str, maxes_: list, parent_: QWidget = None, max_value_: float = None):
+    def __init__(self, name_: str, maxes_: list, parent_: QWidget = None, max_value_: float = None, **kwargs):
         super().__init__(name_, parent_)
-        self.data = {'y': maxes_, 'ry': []}
+        self.data = {'x': [], 'y': maxes_, 'ry': []}
+        if 'x_list' in kwargs:
+            self.data['x'] = kwargs['x_list']
         self.max_value = None
 
         self.data_init(max_value_)
@@ -227,7 +229,7 @@ class FrequencyResponseGraphWidget(AbstractQtGraphWidget):
                 if c >= len(self.lines):
                     self.lines.append(self.plot(self.dict_data_x[len_data]['x'],
                                                 self.data_frames[key][i].data["y"],
-                                                pen=mkPen(cf.COLOR_NAMES[color_i])))
+                                                pen=mkPen(cf.COLOR_NAMES[color_i], width=3)))
                 elif self.data_frames[key][i].active:
                     self.lines[c].setData(self.dict_data_x[len_data]['x'],
                                           self.data_frames[key][i].data["y"])
@@ -243,6 +245,7 @@ class AmplitudeTimeGraphWidget(AbstractQtGraphWidget):
         self.section_name_mode = None
         self.mean_mode = -1
         self.sensor_num = -1
+        self.is_relative = False
         self.graph_init()
         self.setTitle("Зависимость амплитуды во времени")
         self.setLabel('left', 'Значение')
@@ -257,6 +260,7 @@ class AmplitudeTimeGraphWidget(AbstractQtGraphWidget):
         if len(self.data_frames.keys()) < 1:
             return
         color_i, c = 0, 0
+        range_list = {'x': [None, None], 'y': [None, None]}
         if self.section_name_mode is not None:
             if self.section_name_mode not in self.data_frames:
                 return
@@ -265,13 +269,23 @@ class AmplitudeTimeGraphWidget(AbstractQtGraphWidget):
                     continue
                 if color_i >= len(cf.COLOR_NAMES):
                     color_i = 0
+                minmaxes = {'x': [min(self.data_frames[self.section_name_mode][i].data['x']),
+                                  max(self.data_frames[self.section_name_mode][i].data['x'])],
+                            'y': [min(
+                                self.data_frames[self.section_name_mode][i].data['ry' if self.is_relative else "y"]),
+                                  max(self.data_frames[self.section_name_mode][i].data[
+                                          'ry' if self.is_relative else "y"])]}
+                range_list['x'][0] = minmaxes['x'][0] if range_list['x'][0] is None else  min(minmaxes['x'][0], range_list['x'][0])
+                range_list['x'][1] = minmaxes['x'][1] if range_list['x'][1] is None else max(minmaxes['x'][1], range_list['x'][1])
+                range_list['y'][0] = minmaxes['y'][0] if range_list['y'][0] is None else min(minmaxes['y'][0], range_list['y'][0])
+                range_list['y'][1] = minmaxes['y'][1] if range_list['y'][1] is None else max(minmaxes['y'][1], range_list['y'][1])
                 if c >= len(self.lines):
-                    self.lines.append(self.plot(self.dict_data_x[self.section_name_mode],
-                                                self.data_frames[self.section_name_mode][i].data["y"],
+                    self.lines.append(self.plot(self.data_frames[self.section_name_mode][i].data['x'],
+                                                self.data_frames[self.section_name_mode][i].data['ry' if self.is_relative else "y"],
                                                 pen=mkPen(cf.COLOR_NAMES[color_i])))
                 elif self.data_frames[self.section_name_mode][i].active:
-                    self.lines[c].setData(self.dict_data_x[self.section_name_mode],
-                                          self.data_frames[self.section_name_mode][i].data["y"])
+                    self.lines[c].setData(self.data_frames[self.section_name_mode][i].data["x"],
+                                          self.data_frames[self.section_name_mode][i].data['ry' if self.is_relative else "y"])
                 self.legend.addItem(self.lines[c], self.data_frames[self.section_name_mode][i].name)
                 c += 1
                 color_i += 1
@@ -282,19 +296,30 @@ class AmplitudeTimeGraphWidget(AbstractQtGraphWidget):
                     continue
                 if color_i >= len(cf.COLOR_NAMES):
                     color_i = 0
+                minmaxes = {'x': [min(self.data_frames[key][i].data['x']), max(self.data_frames[key][i].data['x'])],
+                            'y': [min(self.data_frames[key][i].data['ry' if self.is_relative else "y"]),
+                                  max(self.data_frames[key][i].data['ry' if self.is_relative else "y"])]}
+                range_list['x'][0] = minmaxes['x'][0] if range_list['x'][0] is None else min(minmaxes['x'][0], range_list['x'][0])
+                range_list['x'][1] = minmaxes['x'][1] if range_list['x'][1] is None else max(minmaxes['x'][1], range_list['x'][1])
+                range_list['y'][0] = minmaxes['y'][0] if range_list['y'][0] is None else min(minmaxes['y'][0], range_list['y'][0])
+                range_list['y'][1] = minmaxes['y'][1] if range_list['y'][1] is None else max(minmaxes['y'][1], range_list['y'][1])
                 print(c, key, i, self.data_frames, self.dict_data_x, sep='\n')
                 if c >= len(self.lines):
-                    self.lines.append(self.plot(self.dict_data_x[key],
-                                                self.data_frames[key][i].data["y"],
+                    self.lines.append(self.plot(self.data_frames[key][i].data["x"],
+                                                self.data_frames[key][i].data['ry' if self.is_relative else "y"],
                                                 pen=mkPen(cf.COLOR_NAMES[color_i])))
                 elif self.data_frames[key][i].active:
-                    self.lines[c].setData(self.dict_data_x[key],
-                                          self.data_frames[key][i].data["y"])
+                    self.lines[c].setData(self.data_frames[key][i].data["x"],
+                                          self.data_frames[key][i].data['ry' if self.is_relative else "y"])
                 self.legend.addItem(self.lines[c], self.data_frames[key][i].name)
                 c += 1
                 color_i += 1
+        # rect = QRect(QPoint(range_list['x'][0], range_list['y'][1]), QPoint(range_list['x'][1], range_list['y'][0]))
+        self.setXRange(range_list['x'][0], range_list['x'][1], padding=2.0)
+        self.setYRange(range_list['y'][0], range_list['y'][1], padding=0.1)
 
     def recreate(self, data_frames_, **kwargs) -> None:
+        self.is_relative = kwargs['is_relative'] if 'is_relative' in kwargs else False
         self.section_name_mode = kwargs['section_name'] if 'section_name' in kwargs else None
         self.mean_mode = kwargs['mean_mode'] if 'mean_mode' in kwargs else 0
         self.sensor_num = kwargs['sensor_num'] if 'sensor_num' in kwargs else -1
@@ -350,7 +375,7 @@ class DepthResponseGraphWidget(AbstractQtGraphWidget):
             self.legend.addItem(self.lines[c], 'section=' + str(section_depth))
             c += 1
             color_i += 1
-        rect = QRect(QPoint(range_list['x'][0], range_list['y'][1]), QPoint(range_list['x'][1], range_list['y'][0]))
+        # rect = QRect(QPoint(range_list['x'][0], range_list['y'][1]), QPoint(range_list['x'][1], range_list['y'][0]))
         self.setXRange(range_list['x'][0], range_list['x'][1], padding=2.0)
         self.setYRange(range_list['y'][0], range_list['y'][1], padding=0.1)
 
