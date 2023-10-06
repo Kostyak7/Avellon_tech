@@ -59,7 +59,7 @@ import config as cf
 # TODO 35) Implement Qt Designer
 # TODO 36) View on graph
 # TODO 37) амлитудный в онтносительных
-# TODO 38)
+# TODO 38) txt to json
 # TODO 39)
 # TODO 40)
 
