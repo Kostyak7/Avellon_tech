@@ -43,10 +43,8 @@ class XYDataFrame(AbstractDataFrame):
 
         if not os.path.exists(self.filename) or not os.path.isfile(self.filename):
             MessageBox().warning(cf.FILE_NOT_EXIST_WARNING_TITLE, cf.FILE_NOT_EXIST_WARNING_MESSAGE_F(self.filename))
-
         else:
-            self.data = pd.read_csv(self.filename, header=None)
-
+            self.data = pd.read_csv(self.filename, header=None, on_bad_lines='skip', dtype=np.dtype(str))
         try:
             self.header = self.header_init()
         except MyWarning as mw:
@@ -314,8 +312,7 @@ class AmplitudeTimeGraphWidget(AbstractQtGraphWidget):
                 self.legend.addItem(self.lines[c], self.data_frames[key][i].name)
                 c += 1
                 color_i += 1
-        # rect = QRect(QPoint(range_list['x'][0], range_list['y'][1]), QPoint(range_list['x'][1], range_list['y'][0]))
-        self.setXRange(range_list['x'][0], range_list['x'][1], padding=2.0)
+        self.setXRange(range_list['x'][0], range_list['x'][1], padding=0.2)
         self.setYRange(range_list['y'][0], range_list['y'][1], padding=0.1)
 
     def recreate(self, data_frames_, **kwargs) -> None:
@@ -329,6 +326,7 @@ class AmplitudeTimeGraphWidget(AbstractQtGraphWidget):
 class DepthResponseGraphWidget(AbstractQtGraphWidget):
     def __init__(self, data_frames_: dict, parent_: QWidget = None):
         super().__init__(data_frames_, parent_)
+        self.is_relative = False
         self.mean_mode = -1
         self.sensor_num = -1
         self.step_num = -1
@@ -355,19 +353,11 @@ class DepthResponseGraphWidget(AbstractQtGraphWidget):
             if color_i >= len(cf.COLOR_NAMES):
                 color_i = 0
             data_y_list = [section_depth + 8, section_depth]
-            if range_list['y'][0] is None:
-                range_list['y'][0] = data_y_list[1]
-            if range_list['y'][1] is None:
-                range_list['y'][1] = data_y_list[0]
-            range_list['y'][0] = min(range_list['y'][0], data_y_list[1])
-            range_list['y'][1] = max(range_list['y'][1], data_y_list[0])
-            data_x_list = [self.data_frames[self.step_num][section_depth][self.mean_mode if self.mean_mode < 0 else self.sensor_num]] * 2
-            if range_list['x'][0] is None:
-                range_list['x'][0] = data_x_list[0]
-            if range_list['x'][1] is None:
-                range_list['x'][1] = data_x_list[1]
-            range_list['x'][0] = min(range_list['x'][0], data_x_list[0])
-            range_list['x'][1] = max(range_list['x'][1], data_x_list[1])
+            range_list['y'][0] = min(data_y_list[1] if range_list['y'][0] is None else range_list['y'][0], data_y_list[1])
+            range_list['y'][1] = max(data_y_list[0] if range_list['y'][1] is None else range_list['y'][1], data_y_list[0])
+            data_x_list = [self.data_frames[self.step_num][section_depth][self.mean_mode if self.mean_mode < 0 else self.sensor_num]['rx' if self.is_relative else "x"]] * 2
+            range_list['x'][0] = min(data_x_list[0] if range_list['x'][0] is None else range_list['x'][0], data_x_list[0])
+            range_list['x'][1] = max(data_x_list[1] if range_list['x'][1] is None else range_list['x'][1], data_x_list[1])
             if c >= len(self.lines):
                 self.lines.append(self.plot(data_x_list, data_y_list, pen=mkPen(cf.COLOR_NAMES[color_i], width=5)))
             else:
@@ -375,11 +365,11 @@ class DepthResponseGraphWidget(AbstractQtGraphWidget):
             self.legend.addItem(self.lines[c], 'section=' + str(section_depth))
             c += 1
             color_i += 1
-        # rect = QRect(QPoint(range_list['x'][0], range_list['y'][1]), QPoint(range_list['x'][1], range_list['y'][0]))
         self.setXRange(range_list['x'][0], range_list['x'][1], padding=2.0)
         self.setYRange(range_list['y'][0], range_list['y'][1], padding=0.1)
 
     def recreate(self, data_frames_, **kwargs) -> None:
+        self.is_relative = kwargs['is_relative'] if 'is_relative' in kwargs else False
         self.mean_mode = kwargs['mean_mode'] if 'mean_mode' in kwargs else 0
         self.sensor_num = kwargs['sensor_num'] if 'sensor_num' in kwargs else -1
         self.step_num = kwargs['step_num'] if 'step_num' in kwargs else -1

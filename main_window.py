@@ -1548,6 +1548,8 @@ class GraphSettingsDialog(AbstractToolDialog):
     def __init__(self, window_graph_):
         super().__init__(cf.GRAPH_SETTINGS_DIALOG_TITLE, window_graph_)
         self.window_graph = window_graph_
+        self.is_relative = False
+        self.relative_checkbox = QCheckBox("Абсолютное значение", self)
         self.mean_mode = -1 # -1 means ARITHMETIC
         self.sensor_num = -1 # -1 means all sensors
         self.mean_editor = QComboBox(self)
@@ -1564,6 +1566,9 @@ class GraphSettingsDialog(AbstractToolDialog):
         self.setLayout(core_layout)
 
     def _editors_init(self) -> None:
+        self.relative_checkbox.setChecked(not self.is_relative)
+        self.relative_checkbox.stateChanged.connect(self.relative_checkbox_action)
+
         self.mean_editor.addItems(["Среднее арифметическое", "Медиана", "Среднее геометрическое",
                                    "Среднее гармоническое", "Сгруппированная медиана"])
         self.mean_editor.currentIndexChanged.connect(self.mean_changed_action)
@@ -1575,6 +1580,9 @@ class GraphSettingsDialog(AbstractToolDialog):
         self.sensors_editor.addItems(choice_list)
         self.sensors_editor.currentIndexChanged.connect(self.sensors_changed_action)
         self.sensors_editor.setCurrentIndex(0)
+
+    def relative_checkbox_action(self, state_) -> None:
+        self.is_relative = state_ == 0
 
     def mean_changed_action(self, index_: int) -> None:
         self.mean_mode = - index_ -1
@@ -1592,9 +1600,7 @@ class AmplitudeGraphSettingsDialog(GraphSettingsDialog):
     def __init__(self, window_graph_):
         super().__init__(window_graph_)
         self.section_mode = 0
-        self.is_relative = False
         self.section_list = []
-        self.relative_checkbox = QCheckBox("Абсолютное значение", self)
         self.section_mode_editor = QComboBox(self)
         self.current_section_editor = QComboBox(self)
         self._editors_init()
@@ -1614,9 +1620,6 @@ class AmplitudeGraphSettingsDialog(GraphSettingsDialog):
 
     def _editors_init(self) -> None:
         super()._editors_init()
-        self.relative_checkbox.setChecked(not self.is_relative)
-        self.relative_checkbox.stateChanged.connect(self.relative_checkbox_action)
-
         self.section_mode_editor.addItems(["Одна секция", "Все доступные секции"])
         self.section_mode_editor.currentIndexChanged.connect(self.section_mode_changed_action)
         self.section_mode_editor.setCurrentIndex(self.section_mode)
@@ -1635,9 +1638,6 @@ class AmplitudeGraphSettingsDialog(GraphSettingsDialog):
             return
         self.current_section_editor.addItems(self.section_list)
         self.current_section_editor.setCurrentIndex(0)
-
-    def relative_checkbox_action(self, state_) -> None:
-        self.is_relative = state_ == 0
 
     def section_mode_changed_action(self, index_: int) -> None:
         self.section_mode = index_
@@ -1721,7 +1721,6 @@ class AmplitudeTimeGraphWindowWidget(AbstractGraphWindowWidget):
     # 		   	  	                     выбор среднего
 
     def replot_for_new_data(self) -> None:
-        print("RELATIVE: ---------- ", self.graph_settings_dialog.is_relative)
         if self.graph_settings_dialog.section_mode == 0:
             section_name = self.graph_settings_dialog.get_current_section()
             if section_name is None:
@@ -1742,6 +1741,7 @@ class DepthGraphSettingsDialog(GraphSettingsDialog):
 
     def __all_widgets_to_layout(self) -> None:
         core_layout = QVBoxLayout()
+        core_layout.addWidget(self.relative_checkbox)
         flo = QFormLayout()
         flo.addRow('Cпособо среднего', self.mean_editor)
         flo.addRow('Выбрать датчики', self.sensors_editor)
@@ -1787,6 +1787,7 @@ class DepthResponseGraphWindowWidget(AbstractGraphWindowWidget):
         self.graph_settings_dialog.close()
         super().activate(is_active_)
 
+    @loading()
     def plot_graph_action(self) -> None:
         self.data_frames = self.borehole_window.borehole.get_step_depth_dataframe_dict()
         if len(self.data_frames) < 1:
@@ -1808,10 +1809,12 @@ class DepthResponseGraphWindowWidget(AbstractGraphWindowWidget):
         if self.graph_settings_dialog.sensor_num == -1:
             self.plot_widget.recreate(self.data_frames, sensor_num=-1,
                                       step_num=self.step_nums_list[self.slider.value() - 1],
-                                      mean_mode=self.graph_settings_dialog.mean_mode)
+                                      mean_mode=self.graph_settings_dialog.mean_mode,
+                                      is_relative=self.graph_settings_dialog.is_relative)
         else:
             self.plot_widget.recreate(self.data_frames, sensor_num=self.graph_settings_dialog.sensor_num,
-                                      step_num=self.step_nums_list[self.slider.value() - 1])
+                                      step_num=self.step_nums_list[self.slider.value() - 1],
+                                      is_relative=self.graph_settings_dialog.is_relative)
 
     def checkbox_activate(self) -> None:
         pass
@@ -1855,8 +1858,7 @@ class WindRoseGraphWindowWidget(AbstractGraphWindowWidget):
     def checkbox_activate(self) -> None:
         self.hide_line_dialog.remove_all()
         for section_name in self.data_frames:
-            self.hide_line_dialog.add_checkbox(section_name,
-                                                CheckBoxHideWindRoseFunctor(section_name, self), True)
+            self.hide_line_dialog.add_checkbox(section_name, CheckBoxHideWindRoseFunctor(section_name, self), True)
         if self.slider.value() != 1:
             self.slider.setValue(1)
         else:

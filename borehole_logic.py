@@ -577,27 +577,42 @@ class Borehole:
 
     def get_step_depth_dataframe_dict(self):
         dataframes_dict = dict()
+        maxes_dict = dict()
         for section in self.section_list:
             for step in section.step_list:
                 if step.number not in dataframes_dict:
                     dataframes_dict[step.number] = dict()
                 if section.depth not in dataframes_dict[step.number] and len(step.data_list):
                     dataframes_dict[step.number][section.depth] = dict()
+                    maxes_dict[section.depth] = dict()
                 for datafile in step.data_list:
                     if datafile.sensor_num not in dataframes_dict[step.number][section.depth]:
-                        dataframes_dict[step.number][section.depth][datafile.sensor_num] = datafile.max()
-                    dataframes_dict[step.number][section.depth][datafile.sensor_num] = max(dataframes_dict[step.number][section.depth][datafile.sensor_num], datafile.max())
+                        dataframes_dict[step.number][section.depth][datafile.sensor_num] = {'x': datafile.max(), 'rx': 0}
+                    if datafile.sensor_num not in maxes_dict[section.depth]:
+                        maxes_dict[section.depth][datafile.sensor_num] =  datafile.max()
+                    dataframes_dict[step.number][section.depth][datafile.sensor_num]['x'] = max(dataframes_dict[step.number][section.depth][datafile.sensor_num]['x'], datafile.max())
+                    maxes_dict[section.depth][datafile.sensor_num] = max(maxes_dict[section.depth][datafile.sensor_num], datafile.max())
         for step_num in dataframes_dict.keys():
             for section_depth in dataframes_dict[step_num].keys():
                 sensor_list = list()
                 for sensor_num in dataframes_dict[step_num][section_depth].keys():
-                    sensor_list.append(dataframes_dict[step_num][section_depth][sensor_num])
+                    sensor_list.append(dataframes_dict[step_num][section_depth][sensor_num]['x'])
                 if len(sensor_list):
-                    dataframes_dict[step_num][section_depth][-1] = st.mean(sensor_list)
-                    dataframes_dict[step_num][section_depth][-2] = st.median(sensor_list)
-                    dataframes_dict[step_num][section_depth][-3] = st.geometric_mean(sensor_list)
-                    dataframes_dict[step_num][section_depth][-4] = st.harmonic_mean(sensor_list)
-                    dataframes_dict[step_num][section_depth][-5] = st.median_grouped(sensor_list)
+                    dataframes_dict[step_num][section_depth][-1] = {'x': st.mean(sensor_list), 'rx': 0}
+                    dataframes_dict[step_num][section_depth][-2] = {'x': st.median(sensor_list), 'rx': 0}
+                    dataframes_dict[step_num][section_depth][-3] = {'x': st.geometric_mean(sensor_list), 'rx': 0}
+                    dataframes_dict[step_num][section_depth][-4] = {'x': st.harmonic_mean(sensor_list), 'rx': 0}
+                    dataframes_dict[step_num][section_depth][-5] = {'x': st.median_grouped(sensor_list), 'rx': 0}
+                    i = -5
+                    while i < 0:
+                        if i not in maxes_dict[section_depth]:
+                            maxes_dict[section_depth][i] = dataframes_dict[step_num][section_depth][i]['x']
+                        maxes_dict[section_depth][i] = max(dataframes_dict[step_num][section_depth][i]['x'], maxes_dict[section_depth][i])
+                        i += 1
+        for step_num in dataframes_dict.keys():
+            for section_depth in dataframes_dict[step_num].keys():
+                for key in dataframes_dict[step_num][section_depth].keys():
+                    dataframes_dict[step_num][section_depth][key]['rx'] = dataframes_dict[step_num][section_depth][key]['x'] / maxes_dict[section_depth][key]
         return dataframes_dict
 
     def save_info_to_file(self, filename_: str = cf.BOREHOLE_INFO_SAVE_FILENAME) -> None:
