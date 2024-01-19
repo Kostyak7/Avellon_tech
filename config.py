@@ -99,10 +99,10 @@ AMPLITUDE_RESOLUTION_HEADER = 'Amplitude resolution'
 DATA_UINT_HEADER = 'Data Uint'
 DATA_POINTS_HEADER = 'Data points'
 CSV_FILE_HEADER_CONTENT = {
-    "Time Base": IntFormatting(['Ojs', 'μs']),
+    "Time Base": FloatFormatting(['Ojs', 'μs', 'ms']),
     "Sampling Rate": FloatFormatting(['MSa/s']),
-    "Amplitude":  FloatFormatting(['mV', 'V']),
-    "Amplitude resolution": FloatFormatting(['mV', 'V']),
+    "Amplitude":  FloatFormatting(['Ojs', 'mV', 'μV', 'V']),
+    "Amplitude resolution": FloatFormatting(['Ojs', 'μV', 'mV', 'V']),
     "Data Uint": StrFormatting([]),
     "Data points": IntFormatting([]),
 }
@@ -159,6 +159,14 @@ def FILE_NOT_EXIST_WARNING_MESSAGE_F(filename_: str = "") -> str:
     return f"{filename_} - не существует или не является файлом!"
 def INCORRECT_FILE_HEADER_WARNING_MESSAGE_F(filename_: str = "") -> str:
     return f"Выбранный файл: - {filename_} - имеет неправильное наполнение в заголовке!"
+
+
+def IS_FLOAT(s_: str) -> bool:
+    try:
+        float(s_)
+        return True
+    except ValueError:
+        return False
 
 
 # INFORMATION TITLES
@@ -249,9 +257,9 @@ WINDROSE_HELP_INFO = '''
 <h2> Смысл графика </h2>
 <p> Что-то ... </p>
 <h2> Построение </h2>
-<p>Роза ветров строиться по датчикам секции по номерам измерений для абсолютных значений или для относительных.
+<p>Круговая диаграмма строиться по датчикам секции по номерам измерений для абсолютных значений или для относительных.
 Чтобы выбрать способ отображение есть галочка `Абсолютное значение`.
-С помощью слайдера можно выбирать номер измерения для отображения соответствующей розы.</p>
+С помощью слайдера можно выбирать номер измерения для отображения соответствующей диаграммы.</p>
 '''
 
 AMPLITUDE_HELP_INFO = '''

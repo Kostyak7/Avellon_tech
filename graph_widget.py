@@ -30,7 +30,9 @@ class AbstractDataFrame:
         self.active = False
         self.data = self.header = None
 
-    def data_init(self): ...
+    def _header_init(self): ...
+
+    def _data_init(self): ...
 
 
 class XYDataFrame(AbstractDataFrame):
@@ -46,7 +48,7 @@ class XYDataFrame(AbstractDataFrame):
         else:
             self.data = pd.read_csv(self.filename, header=None, on_bad_lines='skip', dtype=np.dtype(str))
         try:
-            self.header = self.header_init()
+            self.header = self._header_init()
         except MyWarning as mw:
             MessageBox().warning(mw.exception_title, mw.message)
             is_exception = True
@@ -56,7 +58,7 @@ class XYDataFrame(AbstractDataFrame):
 
         if is_exception:
             self.clear()
-        self.data_init()
+        self._data_init()
 
     def clear(self):
         self.active = False
@@ -65,7 +67,7 @@ class XYDataFrame(AbstractDataFrame):
     def is_correct_read(self) -> bool:
         return self.data is not None and self.header is not None
 
-    def header_init(self) -> dict:
+    def _header_init(self) -> dict:
         res = dict()
         for i in range(cf.CSV_FILE_HEADER_SIZE):
             dot_index = self.data.iloc[i][0].find(':')
@@ -74,13 +76,15 @@ class XYDataFrame(AbstractDataFrame):
                 raise MyWarning(cf.INCORRECT_FILE_CONTENT_WARNING_TITLE,
                                 cf.INCORRECT_FILE_HEADER_WARNING_MESSAGE_F(self.filename))
             header_name = self.data.iloc[i][0][:dot_index]
+            # print("HEADER: ", header_name, self.data.iloc[i][0][dot_index + 1:])
             res[header_name] = cf.CSV_FILE_HEADER_CONTENT[header_name] \
                 .get(self.data.iloc[i][0][dot_index + 1:])
-            if header_name == cf.TIME_BASE_HEADER:
-                res[header_name] *= 1 if self.data.iloc[i][0][dot_index + 1:].find('mV') else 10**-3
+            # print("GET SUCCESS")
+            if header_name == cf.AMPLITUDE_HEADER:
+                res[header_name] *= 1 if self.data.iloc[i][0][dot_index + 1:].lower().find('mv') else 10**-3
         return res
 
-    def data_init(self) -> None:
+    def _data_init(self) -> None:
         if not self.is_correct_read():
             return
         self.data = self.data.drop(index=[0, 1, 2, 3, 4, 5])
@@ -104,9 +108,7 @@ class MaxesDataFrame(AbstractDataFrame):
             self.data['x'] = kwargs['x_list']
         self.max_value = None
 
-        self.data_init(max_value_)
-        # print(self.data)
-
+        self._data_init(max_value_)
         self.tmp_value = None
 
     def max(self, max_value_: float = None) -> float:
@@ -116,7 +118,7 @@ class MaxesDataFrame(AbstractDataFrame):
             self.max_value = max(self.data['y'])
         return self.max_value
 
-    def data_init(self, max_value_: float = None) -> None:
+    def _data_init(self, max_value_: float = None) -> None:
         self.compute_relative_data(max_value_)
 
     def compute_relative_data(self, max_value_: float = None) -> None:
@@ -157,8 +159,11 @@ class AbstractQtGraphWidget(PlotWidget):
             line.clear()
         self.data_frames = data_frames_
         self.data_x_init()
+        # print("DATA SUCCESS")
         self.base_init()
+        # print("BASE SUCCESS")
         self.graph_init()
+        # print("GRAPH SUCCESS")
 
 
 class OscilloscopeGraphWidget(AbstractQtGraphWidget):
@@ -188,6 +193,7 @@ class OscilloscopeGraphWidget(AbstractQtGraphWidget):
             for i in range(len(self.data_frames[key])):
                 if color_i >= len(cf.COLOR_NAMES):
                     color_i = 0
+                # print(self.data_frames[key][i].header[cf.DATA_POINTS_HEADER], self.data_frames[key][i].header[cf.TIME_BASE_HEADER])
                 if c >= len(self.lines):
                     self.lines.append(self.plot(self.dict_data_x[self.data_frames[key][i].header[cf.DATA_POINTS_HEADER]]
                                                 [self.data_frames[key][i].header[cf.TIME_BASE_HEADER]]['x'],

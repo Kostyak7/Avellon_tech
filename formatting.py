@@ -1,7 +1,6 @@
 
 class AbstractFormatting:
     def __init__(self, unit_list_: list):
-        self.content = ''
         self.unit_list = unit_list_
         self.unit_index = -1
 
@@ -10,16 +9,21 @@ class AbstractFormatting:
             self.unit_index = len(content_)
             return None
         self.unit_index = -1
-        for unit in self.unit_list:
-            if len(unit) == 0:
-                self.unit_index = len(content_)
-                return None
-            self.unit_index = content_.find(unit)
-            if self.unit_index != -1:
-                return unit
-        if self.unit_index == -1:
+        success_find = False
+        unit = ''
+        for i in range(len(content_)):
+            tmp_unit = content_[len(content_) - i: len(content_)]
+            for un in self.unit_list:
+                # print(len(content_) - i, un.lower(), tmp_unit.lower(), un.lower() == tmp_unit.lower())
+                if un.lower() == tmp_unit.lower():
+                    success_find = True
+                    unit = tmp_unit
+                    self.unit_index = len(content_) - i
+                    break
+        # print(unit, success_find)
+        if not success_find:
             raise Warning('')
-        return None
+        return unit
 
     def get(self, content_: str): ...
 
@@ -38,6 +42,6 @@ class FloatFormatting(AbstractFormatting):
 
 class StrFormatting(AbstractFormatting):
     def get(self, content_: str) -> str:
-        self.unit_separator(content_)
-        return str(content_[:self.unit_index])
+        self.unit_index = len(content_)
+        return content_[:self.unit_index]
         

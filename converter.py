@@ -22,14 +22,6 @@ def try_create_dir(parent_path_: str, name_: str, num_: int = -1) -> str:
     return tmp_name
 
 
-def is_float(s_: str) -> bool:
-    try:
-        float(s_)
-        return True
-    except ValueError:
-        return False
-
-
 class FileConverter:
     def __init__(self, filename_: str, save_dir_: str, sensor_num_: int, crash_deep_: int, measurement_num_: int):
         self.old_filename = filename_
@@ -60,9 +52,9 @@ class FileConverter:
         return True
 
     def __header_line_convert(self, old_file_, new_file_, header_name_: str) -> bool:
-        time_base = self.__get_clear_header_line(old_file_.readline(), header_name_)
-        if time_base is not None:
-            new_file_.write(time_base)
+        header_line = self.__get_clear_header_line(old_file_.readline(), header_name_)
+        if header_line is not None:
+            new_file_.write(header_line.replace(',', '.'))
             return True
         return False
 
@@ -76,11 +68,10 @@ class FileConverter:
         for line in old_file_:
             index = line.find(',')
             new_line = line if index == -1 else line[:index]
-            if not is_float(new_line):
-                return False
-            if new_line[-1] != '\n':
-                new_line += '\n'
-            new_file_.write(new_line)
+            if cf.IS_FLOAT(new_line):
+                if new_line[-1] != '\n':
+                    new_line += '\n'
+                new_file_.write(new_line)
         return True
 
 
@@ -93,7 +84,7 @@ class FileDirector:
         self.crash_deep = crash_deep_
         self.start_measurement_num = start_measurement_num_
         self.save_dir = str((pathlib.Path().resolve() if converted_folder_path_ is None
-                             else pathlib.Path(converted_folder_path_))  / converted_folder_name_)
+                             else pathlib.Path(converted_folder_path_)) / converted_folder_name_)
         if not in_exist_ or not os.path.isdir(self.save_dir):
             self.save_dir = try_create_dir(str(pathlib.Path(filename_list_[0]).parent), converted_folder_name_) \
                 if converted_folder_path_ is None else try_create_dir(converted_folder_path_, converted_folder_name_)
@@ -194,7 +185,6 @@ class ConverterDialog(AbstractToolDialog):
             text_ = '0'
             self.crash_deep_editor.setText(text_)
         self.start_measurement_num = 0 if len(text_) < 1 else int(float(text_))
-
 
     def files_conversion_action(self) -> None:
         filename_list, useless_filter = QFileDialog.getOpenFileNames(self, dir=str(pathlib.Path().resolve()),
