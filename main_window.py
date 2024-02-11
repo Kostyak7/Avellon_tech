@@ -1124,7 +1124,7 @@ class OscilloscopeGraphWindowWidget(AbstractGraphWindowWidget):
             for key in self.data_frames.keys():
                 for dataframe in self.data_frames[key]:
                     if dataframe.filt_data is None:
-                        filter = KalmanFilter(dataframe.origin_data["y"])
+                        filter = ArithmeticMeanFilter(dataframe.origin_data["y"])
                         # filter.set_params(0.05, 0.2, 1.5)
                         dataframe.filt_data = {"y": filter.get_data()}
                     dataframe.data = dataframe.filt_data
