@@ -16,6 +16,7 @@ from third_party import AbstractFunctor, HelpInfoDialog, SimpleItemListWidget, \
     MyCheckBox, ButtonWidget, MessageBox, get_last_project_path, AbstractToolDialog
 from loadlabel import loading
 from borehole_logic import *
+from data_filter import *
 from converter import ConverterDialog
 import config as cf
 
@@ -1090,6 +1091,13 @@ class OscilloscopeGraphWindowWidget(AbstractGraphWindowWidget):
         super().__init__(borehole_window_)
         self.table_widget = OscilloscopeTableWidget(self)
         self.plot_widget = OscilloscopeGraphWidget(dict(), self)
+
+        self.is_filtering = False
+        filter_action_btn = self.tools_menu_btn.addAction('Фильтрация данных')
+        filter_action_btn.setCheckable(True)
+        filter_action_btn.setChecked(False)
+        filter_action_btn.triggered.connect(self.filter_data_action)
+
         self.__all_widgets_to_layout()
         self.activate(False)
 
@@ -1102,12 +1110,29 @@ class OscilloscopeGraphWindowWidget(AbstractGraphWindowWidget):
         core_layout.addLayout(table_checkbox_layout)
         core_layout.addWidget(self.plot_widget)
         self.setLayout(core_layout)
+
+    def filter_data_action(self, state_: bool) -> None:
+        self.is_filtering = state_
+        self.plot_graph_action()
     
-    @loading('checkbox_activate')
+    # @loading('checkbox_activate')
     def plot_graph_action(self) -> None:
         self.data_frames = self.borehole_window.borehole.get_xy_dataframes_dict()
         if len(self.data_frames) < 1:
             return
+        if self.is_filtering:
+            for key in self.data_frames.keys():
+                for dataframe in self.data_frames[key]:
+                    if dataframe.filt_data is None:
+                        filter = KalmanFilter(dataframe.origin_data["y"])
+                        # filter.set_params(0.05, 0.2, 1.5)
+                        dataframe.filt_data = {"y": filter.get_data()}
+                    dataframe.data = dataframe.filt_data
+        else:
+            for key in self.data_frames.keys():
+                for dataframe in self.data_frames[key]:
+                    dataframe.data = dataframe.origin_data
+
         self.table_widget.set_data(self.data_frames, self.borehole_window.main_window.size())
         self.replot_for_new_data()
     

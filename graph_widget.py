@@ -17,6 +17,8 @@ class AbstractDataFrame:
         self.id = uuid4()
         self.active = True
         self.data = None
+        self.origin_data = None
+        self.filt_data = None
         self.header = None
         self.parent = parent_
 
@@ -30,6 +32,12 @@ class AbstractDataFrame:
         self.active = False
         self.data = self.header = None
 
+    def swap_filt_data(self):
+        self.data, self.filt_data = self.filt_data, self.data
+
+    def swap_origin_data(self):
+        self.data, self.origin_data = self.origin_data, self.data
+
     def _header_init(self): ...
 
     def _data_init(self): ...
@@ -39,7 +47,6 @@ class XYDataFrame(AbstractDataFrame):
     def __init__(self, filename_: str, parent_: QWidget = None):
         super().__init__(os.path.basename(filename_), parent_)
         self.filename = filename_
-        self.data = None
         self.max_y = None
         is_exception = False
 
@@ -87,8 +94,10 @@ class XYDataFrame(AbstractDataFrame):
     def _data_init(self) -> None:
         if not self.is_correct_read():
             return
+
         self.data = self.data.drop(index=[0, 1, 2, 3, 4, 5])
-        self.data = {'y': self.data[0].astype(float).values.tolist()}
+        self.origin_data = {'y': self.data[0].astype(float).values.tolist()}
+        self.data = self.origin_data
         self.max_y = max(self.data['y'])
 
     @staticmethod
