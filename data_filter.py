@@ -5,6 +5,9 @@ class AbstractDataFilter:
     def __init__(self, data: list):
         self.init_data = data
 
+    def set_data(self, data_: list) -> None:
+        self.init_data = data_
+
     def set_params(self, *args, **kwargs): ...
 
     def get_data(self): ...

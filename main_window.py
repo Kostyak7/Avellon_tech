@@ -1046,6 +1046,282 @@ class CheckBoxList(ListWidget):
         self.add_widget(checkbox)
 
 
+class AbstractFilterSettings(QWidget):
+    def __init__(self, parent_: QWidget = None):
+        super().__init__(parent_)
+        self.filter = None
+        self.setVisible(False)
+
+    def get_filtered_data(self, init_data_: list) -> list:
+        self.filter.set_data(init_data_)
+        return self.filter.get_data()
+
+
+class ArithFilterSettings(AbstractFilterSettings):
+    def __init__(self, parent_: QWidget = None):
+        super().__init__(parent_)
+        self.filter = ArithmeticMeanFilter([])
+
+        self.buffer_editor = QLineEdit(self)
+        self.buffer_editor.setValidator(QIntValidator())
+        self.buffer_editor.setText(str(self.filter.buffer_size))
+        self.buffer_editor.textChanged.connect(self.buffer_edit_action)
+
+        self.__all_widgets_to_layout()
+
+    def __all_widgets_to_layout(self) -> None:
+        flo = QFormLayout()
+        flo.addRow("Размер буффера", self.buffer_editor)
+
+        core_layout = QVBoxLayout()
+        core_layout.addLayout(flo)
+        self.setLayout(core_layout)
+
+    def buffer_edit_action(self, text_: str) -> None:
+        if len(text_) == 0 or not (0 < int(text_) < 100):
+            self.buffer_editor.setText(str(self.filter.buffer_size))
+            return
+        self.filter.set_params(int(text_))
+
+
+class MedianFilterSettings(AbstractFilterSettings):
+    def __init__(self, parent_: QWidget = None):
+        super().__init__(parent_)
+        self.filter = MedianFilter([])
+
+        self.buffer_editor = QLineEdit(self)
+        self.buffer_editor.setValidator(QIntValidator())
+        self.buffer_editor.setText(str(self.filter.buffer_size))
+        self.buffer_editor.textChanged.connect(self.buffer_edit_action)
+
+        self.__all_widgets_to_layout()
+
+    def __all_widgets_to_layout(self) -> None:
+        flo = QFormLayout()
+        flo.addRow("Размер буффера", self.buffer_editor)
+
+        core_layout = QVBoxLayout()
+        core_layout.addLayout(flo)
+        self.setLayout(core_layout)
+
+    def buffer_edit_action(self, text_: str) -> None:
+        if len(text_) == 0 or not (0 < int(text_) < 100):
+            self.buffer_editor.setText(str(self.filter.buffer_size))
+            return
+        self.filter.set_params(int(text_))
+
+
+class ExpMeanFilterSettings(AbstractFilterSettings):
+    def __init__(self, parent_: QWidget = None):
+        super().__init__(parent_)
+        self.filter = ExpEasyMeanFilter([])
+
+        self.s_k_editor = QLineEdit(self)
+        self.max_k_editor = QLineEdit(self)
+        self.d_editor = QLineEdit(self)
+        self.__editors_init()
+
+        self.__all_widgets_to_layout()
+
+    def __all_widgets_to_layout(self) -> None:
+        flo = QFormLayout()
+        flo.addRow("S_k", self.s_k_editor)
+        flo.addRow("Max_k", self.max_k_editor)
+        flo.addRow("D", self.d_editor)
+
+        core_layout = QVBoxLayout()
+        core_layout.addLayout(flo)
+        self.setLayout(core_layout)
+
+    def __editors_init(self) -> None:
+        self.s_k_editor.setValidator(QDoubleValidator(0., 0.999, 4))
+        self.s_k_editor.setText(str(self.filter.s_k))
+        self.s_k_editor.textChanged.connect(self.s_k_edit_action)
+
+        self.max_k_editor.setValidator(QDoubleValidator(0., 0.999, 4))
+        self.max_k_editor.setText(str(self.filter.max_k))
+        self.max_k_editor.textChanged.connect(self.max_k_edit_action)
+
+        self.d_editor.setValidator(QDoubleValidator(0.3, 10., 4))
+        self.d_editor.setText(str(self.filter.d))
+        self.d_editor.textChanged.connect(self.d_edit_action)
+
+    def s_k_edit_action(self, text_: str) -> None:
+        if len(text_) != 0:
+            self.filter.s_k = float(text_)
+
+    def max_k_edit_action(self, text_: str) -> None:
+        if len(text_) != 0:
+            self.filter.max_k = float(text_)
+
+    def d_edit_action(self, text_: str) -> None:
+        if len(text_) != 0:
+            self.filter.d = float(text_)
+
+
+class NormFilterSettings(AbstractFilterSettings):
+    def __init__(self, parent_: QWidget = None):
+        super().__init__(parent_)
+        self.filter = NormaliseFilter([])
+
+        self.buffer_editor = QLineEdit(self)
+        self.s_k_editor = QLineEdit(self)
+        self.max_k_editor = QLineEdit(self)
+        self.d_editor = QLineEdit(self)
+        self.__editors_init()
+
+        self.__all_widgets_to_layout()
+
+    def __all_widgets_to_layout(self) -> None:
+        flo = QFormLayout()
+        flo.addRow("Размер буффера", self.buffer_editor)
+        flo.addRow("S_k", self.s_k_editor)
+        flo.addRow("Max_k", self.max_k_editor)
+        flo.addRow("D", self.d_editor)
+
+        core_layout = QVBoxLayout()
+        core_layout.addLayout(flo)
+        self.setLayout(core_layout)
+
+    def __editors_init(self) -> None:
+        self.buffer_editor.setValidator(QIntValidator())
+        self.buffer_editor.setText(str(self.filter.buffer_size))
+        self.buffer_editor.textChanged.connect(self.buffer_edit_action)
+
+        self.s_k_editor.setValidator(QDoubleValidator(0., 0.999, 4))
+        self.s_k_editor.setText(str(self.filter.s_k))
+        self.s_k_editor.textChanged.connect(self.s_k_edit_action)
+
+        self.max_k_editor.setValidator(QDoubleValidator(0., 0.999, 4))
+        self.max_k_editor.setText(str(self.filter.max_k))
+        self.max_k_editor.textChanged.connect(self.max_k_edit_action)
+
+        self.d_editor.setValidator(QDoubleValidator(0.3, 10., 4))
+        self.d_editor.setText(str(self.filter.d))
+        self.d_editor.textChanged.connect(self.d_edit_action)
+
+    def s_k_edit_action(self, text_: str) -> None:
+        if len(text_) != 0:
+            self.filter.s_k = float(text_)
+
+    def max_k_edit_action(self, text_: str) -> None:
+        if len(text_) != 0:
+            self.filter.max_k = float(text_)
+
+    def d_edit_action(self, text_: str) -> None:
+        if len(text_) != 0:
+            self.filter.d = float(text_)
+
+    def buffer_edit_action(self, text_: str) -> None:
+        if len(text_) == 0 or not (0 < int(text_) < 100):
+            self.buffer_editor.setText(str(self.filter.buffer_size))
+            return
+        self.filter.buffer_size = int(text_)
+
+
+class KalmanFilterSettings(AbstractFilterSettings):
+    def __init__(self, parent_: QWidget = None):
+        super().__init__(parent_)
+        self.filter = KalmanFilter([])
+
+        self.q_editor = QLineEdit(self)
+        self.r_editor = QLineEdit(self)
+        self.__editors_init()
+
+        self.__all_widgets_to_layout()
+
+    def __all_widgets_to_layout(self) -> None:
+        flo = QFormLayout()
+        flo.addRow("Q", self.q_editor)
+        flo.addRow("R", self.r_editor)
+
+        core_layout = QVBoxLayout()
+        core_layout.addLayout(flo)
+        self.setLayout(core_layout)
+
+    def __editors_init(self) -> None:
+        self.q_editor.setValidator(QDoubleValidator(0., 0.999, 4))
+        self.q_editor.setText(str(self.filter.q))
+        self.q_editor.textChanged.connect(self.q_edit_action)
+
+        self.r_editor.setValidator(QDoubleValidator(0., 0.999, 4))
+        self.r_editor.setText(str(self.filter.r))
+        self.r_editor.textChanged.connect(self.r_edit_action)
+
+    def q_edit_action(self, text_: str) -> None:
+        if len(text_) != 0:
+            self.filter.q = float(text_)
+
+    def r_edit_action(self, text_: str) -> None:
+        if len(text_) != 0:
+            self.filter.r = float(text_)
+
+
+class FilterSettingsDialog(AbstractToolDialog):
+    def __init__(self, window_widget_):
+        super().__init__(cf.FILTER_SETTINGS_DIALOG_TITLE, window_widget_)
+        self.window_widget = window_widget_
+        self.setWindowModality(Qt.ApplicationModal)
+        self.setMinimumSize(800, 500)
+        self.is_filtering = False
+        self.is_filter_checkbox = QCheckBox(self)
+        self.is_filter_checkbox.clicked.connect(self.is_filter_action)
+
+        self.filter_widgets_dict = {
+            "Среднее арифметическое":  ArithFilterSettings(self),
+            "Медиана": MedianFilterSettings(self),
+            "Экспонициальное среднее": ExpMeanFilterSettings(self),
+            "Нормализованное": NormFilterSettings(self),
+            "Фильтр Калмана": KalmanFilterSettings(self)
+        }
+        self.filter_editor = QComboBox(self)
+        self.filter_editor.addItems(self.filter_widgets_dict.keys())
+        self.filter_editor.currentIndexChanged.connect(self.filter_changed_action)
+        self.filter_editor.setCurrentIndex(0)
+        self.filter_widgets_dict[self.filter_editor.currentText()].setVisible(True)
+
+        self.accept_button = QPushButton("Применить")
+        self.__button_init()
+        self.__all_widgets_to_layout()
+
+    def __button_init(self) -> None:
+        self.accept_button.clicked.connect(self.accept_action)
+        self.accept_button.setShortcut("Shift+Esc")
+
+    def __all_widgets_to_layout(self) -> None:
+        accept_cancel_layout = QHBoxLayout()
+        accept_cancel_layout.addWidget(self.accept_button)
+
+        flo = QFormLayout()
+        flo.addRow("Применить фильтр к данным", self.is_filter_checkbox)
+        flo.addRow("Способ фильтрации", self.filter_editor)
+
+        core_layout = QVBoxLayout()
+        core_layout.addLayout(flo)
+        for key in self.filter_widgets_dict.keys():
+            core_layout.addWidget(self.filter_widgets_dict[key])
+        core_layout.addLayout(accept_cancel_layout)
+        self.setLayout(core_layout)
+
+    def filter_changed_action(self, index_: int) -> None:
+        for key in self.filter_widgets_dict.keys():
+            self.filter_widgets_dict[key].setVisible(False)
+        self.filter_widgets_dict[self.filter_editor.currentText()].setVisible(True)
+
+    def is_filter_action(self, state_: bool) -> None:
+        self.is_filtering = state_
+
+    def get_data(self, init_data_: list) -> dict:
+        return {"y": self.filter_widgets_dict[self.filter_editor.currentText()].get_filtered_data(init_data_)}
+
+    def accept_action(self) -> None:
+        self.window_widget.filter_action_btn.setChecked(self.is_filtering)
+        self.close()
+
+    def run(self):
+        self.show()
+
+
 # ---------------- Oscilloscope ----------------
 class OscilloscopeTableWidget(QTableWidget):
     def __init__(self, parent_: QWidget):
@@ -1092,11 +1368,13 @@ class OscilloscopeGraphWindowWidget(AbstractGraphWindowWidget):
         self.table_widget = OscilloscopeTableWidget(self)
         self.plot_widget = OscilloscopeGraphWidget(dict(), self)
 
-        self.is_filtering = False
-        filter_action_btn = self.tools_menu_btn.addAction('Фильтрация данных')
-        filter_action_btn.setCheckable(True)
-        filter_action_btn.setChecked(False)
-        filter_action_btn.triggered.connect(self.filter_data_action)
+        self.filter_settings_dialog = FilterSettingsDialog(self)
+        self.filter_action_btn = self.tools_menu_btn.addAction('Фильтрация данных')
+        self.filter_action_btn.setCheckable(True)
+        self.filter_action_btn.setChecked(False)
+        self.filter_action_btn.triggered.connect(self.filter_data_action)
+        filter_dialog_action_btn = self.tools_menu_btn.addAction('Настройка фильтров данных')
+        filter_dialog_action_btn.triggered.connect(self.filter_settings_dialog.run)
 
         self.__all_widgets_to_layout()
         self.activate(False)
@@ -1112,21 +1390,19 @@ class OscilloscopeGraphWindowWidget(AbstractGraphWindowWidget):
         self.setLayout(core_layout)
 
     def filter_data_action(self, state_: bool) -> None:
-        self.is_filtering = state_
+        self.filter_settings_dialog.is_filtering = state_
         self.plot_graph_action()
-    
+
     # @loading('checkbox_activate')
     def plot_graph_action(self) -> None:
         self.data_frames = self.borehole_window.borehole.get_xy_dataframes_dict()
         if len(self.data_frames) < 1:
             return
-        if self.is_filtering:
+        if self.filter_settings_dialog.is_filtering:
             for key in self.data_frames.keys():
                 for dataframe in self.data_frames[key]:
                     if dataframe.filt_data is None:
-                        filter = ArithmeticMeanFilter(dataframe.origin_data["y"])
-                        # filter.set_params(0.05, 0.2, 1.5)
-                        dataframe.filt_data = {"y": filter.get_data()}
+                        dataframe.filt_data = self.filter_settings_dialog.get_data(dataframe.origin_data["y"])
                     dataframe.data = dataframe.filt_data
         else:
             for key in self.data_frames.keys():
