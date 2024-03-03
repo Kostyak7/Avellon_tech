@@ -1265,6 +1265,7 @@ class FilterSettingsDialog(AbstractToolDialog):
         self.setMinimumSize(800, 500)
         self.is_filtering = False
         self.is_filter_checkbox = QCheckBox(self)
+        self.is_filter_checkbox.setChecked(self.is_filtering)
         self.is_filter_checkbox.clicked.connect(self.is_filter_action)
 
         self.filter_widgets_dict = {
@@ -1308,6 +1309,10 @@ class FilterSettingsDialog(AbstractToolDialog):
             self.filter_widgets_dict[key].setVisible(False)
         self.filter_widgets_dict[self.filter_editor.currentText()].setVisible(True)
 
+    def set_filter(self, state_: bool) -> None:
+        self.is_filtering = state_
+        self.is_filter_checkbox.setChecked(state_)
+
     def is_filter_action(self, state_: bool) -> None:
         self.is_filtering = state_
 
@@ -1316,6 +1321,7 @@ class FilterSettingsDialog(AbstractToolDialog):
 
     def accept_action(self) -> None:
         self.window_widget.filter_action_btn.setChecked(self.is_filtering)
+        self.window_widget.plot_graph_action()
         self.close()
 
     def run(self):
@@ -1371,7 +1377,7 @@ class OscilloscopeGraphWindowWidget(AbstractGraphWindowWidget):
         self.filter_settings_dialog = FilterSettingsDialog(self)
         self.filter_action_btn = self.tools_menu_btn.addAction('Фильтрация данных')
         self.filter_action_btn.setCheckable(True)
-        self.filter_action_btn.setChecked(False)
+        self.filter_action_btn.setChecked(self.filter_settings_dialog.is_filtering)
         self.filter_action_btn.triggered.connect(self.filter_data_action)
         filter_dialog_action_btn = self.tools_menu_btn.addAction('Настройка фильтров данных')
         filter_dialog_action_btn.triggered.connect(self.filter_settings_dialog.run)
@@ -1390,7 +1396,7 @@ class OscilloscopeGraphWindowWidget(AbstractGraphWindowWidget):
         self.setLayout(core_layout)
 
     def filter_data_action(self, state_: bool) -> None:
-        self.filter_settings_dialog.is_filtering = state_
+        self.filter_settings_dialog.set_filter(state_)
         self.plot_graph_action()
 
     # @loading('checkbox_activate')
