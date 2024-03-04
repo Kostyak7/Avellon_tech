@@ -2,7 +2,7 @@ import os
 import sys
 import pathlib
 from PySide6.QtWidgets import QFileDialog, QVBoxLayout, QPushButton, QWidget, \
-    QFormLayout, QLineEdit, QDialog
+    QFormLayout, QLineEdit, QCheckBox
 from PySide6.QtGui import QIntValidator
 from PySide6.QtCore import Qt
 from third_party import MessageBox, AbstractToolDialog
@@ -23,11 +23,12 @@ def try_create_dir(parent_path_: str, name_: str, num_: int = -1) -> str:
 
 
 class FileConverter:
-    def __init__(self, filename_: str, save_dir_: str, sensor_num_: int, crash_deep_: int, measurement_num_: int):
+    def __init__(self, filename_: str, save_dir_: str, sensor_num_: int, crash_deep_: int, measurement_num_: int, is_fill_gap: bool = False):
         self.old_filename = filename_
         self.old_basename = os.path.basename(self.old_filename)
         self.new_basename = f'DEFAULT_{self.get_sensor_num(sensor_num_)}_{crash_deep_}mm_{self.get_measurement_num(measurement_num_)}.csv'
         self.new_filename = save_dir_ + '/' + self.new_basename
+        self.is_fill_gap = is_fill_gap
 
     def get_measurement_num(self, measurement_num_: int) -> str:
         return chr(ord('A') + measurement_num_ - 10) if measurement_num_ > 9 else str(measurement_num_)
@@ -47,8 +48,11 @@ class FileConverter:
                 not self.__header_line_convert(old_file, new_file, cf.DATA_UINT_HEADER) or \
                 not self.__header_line_convert(old_file, new_file, cf.DATA_POINTS_HEADER) or \
                 not self.__data_convert(old_file, new_file):
+            new_file.close()
             os.remove(self.new_filename)
             return False
+        old_file.close()
+        new_file.close()
         return True
 
     def __header_line_convert(self, old_file_, new_file_, header_name_: str) -> bool:
@@ -65,6 +69,7 @@ class FileConverter:
         return f'{header_name_}:{line_[index + len(header_name_ + ":"):]}'
 
     def __data_convert(self, old_file_, new_file_) -> bool:
+        accumulate = [0] * 10
         for line in old_file_:
             index = line.find(',')
             new_line = line if index == -1 else line[:index]
@@ -72,13 +77,24 @@ class FileConverter:
                 if new_line[-1] != '\n':
                     new_line += '\n'
                 new_file_.write(new_line)
+                if self.is_fill_gap:
+
+                    accumulate = accumulate[1:] + [float(new_line)]
+            elif self.is_fill_gap:
+                ss = 0
+                for i in range(len(accumulate)):
+                    ss += accumulate[i]
+                # print(ss, len(accumulate), ss / len(accumulate))
+                new_file_.write("  " + str(ss / len(accumulate)) + "\n")
+            else:
+                return False
         return True
 
 
 class FileDirector:
     def __init__(self, filename_list_: list, sensor_num_: int, crash_deep_: int, start_measurement_num_: int,
                  converted_folder_name_: str = cf.DEFAULT_CONVERTED_DATA_FOLDER, converted_folder_path_: str = None,
-                 in_exist_: bool = False):
+                 in_exist_: bool = False, is_fill_gap: bool = False):
         self.filename_list = filename_list_
         self.sensor_num = sensor_num_
         self.crash_deep = crash_deep_
@@ -88,13 +104,15 @@ class FileDirector:
         if not in_exist_ or not os.path.isdir(self.save_dir):
             self.save_dir = try_create_dir(str(pathlib.Path(filename_list_[0]).parent), converted_folder_name_) \
                 if converted_folder_path_ is None else try_create_dir(converted_folder_path_, converted_folder_name_)
+        self.is_fill_gap = is_fill_gap
 
     def convert(self) -> bool:
         measurement_num = self.start_measurement_num
         for filename in self.filename_list:
             if measurement_num > 36:
                 return True
-            file_converter = FileConverter(filename, self.save_dir, self.sensor_num, self.crash_deep, measurement_num)
+            file_converter = FileConverter(filename, self.save_dir, self.sensor_num,
+                                           self.crash_deep, measurement_num, self.is_fill_gap)
             if not file_converter.convert():
                 return False
             measurement_num += 1
@@ -107,11 +125,13 @@ class ConverterDialog(AbstractToolDialog):
         self.sensor_num = 0
         self.crash_deep = 0
         self.start_measurement_num = 0
+        self.is_fill_gap = False
         self.setWindowModality(Qt.ApplicationModal)
 
         self.sensor_editor = QLineEdit(self)
         self.crash_deep_editor = QLineEdit(self)
         self.measurement_editor = QLineEdit(self)
+        self.is_fill_gap_checkbox = QCheckBox(self)
         self.__editor_init()
         self.__values_to_editors()
 
@@ -135,6 +155,9 @@ class ConverterDialog(AbstractToolDialog):
         self.measurement_editor.setValidator(QIntValidator())
         self.measurement_editor.textChanged.connect(self.measurement_num_edit_action)
 
+        self.is_fill_gap_checkbox.setChecked(self.is_fill_gap)
+        self.is_fill_gap_checkbox.clicked.connect(self.is_fill_gap_action)
+
     def __values_to_editors(self) -> None:
         self.sensor_num_edit_action(str(self.sensor_num))
         self.crash_deep_editor.setText(str(self.crash_deep))
@@ -152,6 +175,7 @@ class ConverterDialog(AbstractToolDialog):
         flo.addRow('Номер датчика', self.sensor_editor)
         flo.addRow('Глубина трещины', self.crash_deep_editor)
         flo.addRow('Номер первого измерения', self.measurement_editor)
+        flo.addRow('Заполнять пробелы в данных', self.is_fill_gap_checkbox)
 
         core_layout = QVBoxLayout()
         core_layout.addLayout(flo)
@@ -179,6 +203,9 @@ class ConverterDialog(AbstractToolDialog):
             text_ = '0'
             self.crash_deep_editor.setText(text_)
         self.crash_deep = 0 if len(text_) < 1 else int(float(text_))
+
+    def is_fill_gap_action(self, state_: bool) -> None:
+        self.is_fill_gap = state_
 
     def measurement_num_edit_action(self, text_: str) -> None:
         if text_.find('-') != -1:
@@ -225,7 +252,7 @@ class ConverterDialog(AbstractToolDialog):
     def conversion(self, filename_list_: list, converted_folder_name_: str = cf.DEFAULT_CONVERTED_DATA_FOLDER,
                    converted_folder_path_: str = None) -> bool:
         file_director = FileDirector(filename_list_, self.sensor_num, self.crash_deep, self.start_measurement_num,
-                                     converted_folder_name_, converted_folder_path_)
+                                     converted_folder_name_, converted_folder_path_, is_fill_gap=self.is_fill_gap)
         return file_director.convert()
 
     @loading('result_conversion', True)
@@ -240,7 +267,7 @@ class ConverterDialog(AbstractToolDialog):
             if len(filename_list) < 1:
                 continue
             file_director = FileDirector(filename_list, sensor_num, self.crash_deep, 0,
-                                         converted_folder_name_, converted_folder_path_, True)
+                                         converted_folder_name_, converted_folder_path_, True, is_fill_gap=self.is_fill_gap)
             res = file_director.convert() and res
             sensor_num += 1
         return res

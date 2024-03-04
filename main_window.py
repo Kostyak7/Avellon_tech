@@ -1399,7 +1399,7 @@ class OscilloscopeGraphWindowWidget(AbstractGraphWindowWidget):
         self.filter_settings_dialog.set_filter(state_)
         self.plot_graph_action()
 
-    # @loading('checkbox_activate')
+    @loading('checkbox_activate')
     def plot_graph_action(self) -> None:
         self.data_frames = self.borehole_window.borehole.get_xy_dataframes_dict()
         if len(self.data_frames) < 1:
@@ -1817,6 +1817,15 @@ class FrequencyResponseGraphWindowWidget(AbstractGraphWindowWidget):
         self.cracks_dialog = CrackSettingsDialog(self.pipe_widget.pipe, self)
         crack_action_btn = self.tools_menu_btn.addAction('Задать параметры трубы')
         crack_action_btn.triggered.connect(self.run_crack_dialog_action)
+
+        # self.filter_settings_dialog = FilterSettingsDialog(self)
+        # self.filter_action_btn = self.tools_menu_btn.addAction('Фильтрация данных')
+        # self.filter_action_btn.setCheckable(True)
+        # self.filter_action_btn.setChecked(self.filter_settings_dialog.is_filtering)
+        # self.filter_action_btn.triggered.connect(self.filter_data_action)
+        # filter_dialog_action_btn = self.tools_menu_btn.addAction('Настройка фильтров данных')
+        # filter_dialog_action_btn.triggered.connect(self.filter_settings_dialog.run)
+
         self.__all_widgets_to_layout()
         self.activate(False)
 
@@ -1830,6 +1839,10 @@ class FrequencyResponseGraphWindowWidget(AbstractGraphWindowWidget):
     def activate(self, is_active_: bool = True) -> None:
         self.cracks_dialog.close()
         super().activate(is_active_)
+
+    # def filter_data_action(self, state_: bool) -> None:
+    #     self.filter_settings_dialog.set_filter(state_)
+    #     self.plot_graph_action()
 
     @loading('checkbox_activate')
     def plot_graph_action(self) -> None:
