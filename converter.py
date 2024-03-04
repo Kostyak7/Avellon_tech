@@ -125,7 +125,7 @@ class ConverterDialog(AbstractToolDialog):
         self.sensor_num = 0
         self.crash_deep = 0
         self.start_measurement_num = 0
-        self.is_fill_gap = False
+        self.is_fill_gap = True
         self.setWindowModality(Qt.ApplicationModal)
 
         self.sensor_editor = QLineEdit(self)
