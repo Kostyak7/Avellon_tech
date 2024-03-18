@@ -103,7 +103,7 @@ class XYDataFrame(AbstractDataFrame):
     @staticmethod
     def get_data_x(data_points_: int, time_base_: int) -> dict:
         x_data = {'x': []}
-        step = time_base_ * 16 / data_points_ * 0.001
+        step = time_base_ * 32 / data_points_ * 10**-6
         for i in range(data_points_):
             x_data['x'].append((i - 1) * step)
         return x_data
