@@ -101,11 +101,11 @@ class XYDataFrame(AbstractDataFrame):
         self.max_y = max(self.data['y'])
 
     @staticmethod
-    def get_data_x(data_points_: int, time_base_: int) -> dict:
+    def get_data_x(data_points_: int, time_base_: int, zero_index_: int = 0) -> dict:
         x_data = {'x': []}
         step = time_base_ * 32 / data_points_ * 10**-6
         for i in range(data_points_):
-            x_data['x'].append((i - 1) * step)
+            x_data['x'].append((i - zero_index_) * step)
         return x_data
 
 
@@ -191,7 +191,9 @@ class OscilloscopeGraphWidget(AbstractQtGraphWidget):
                     self.dict_data_x[dataframe.header[cf.DATA_POINTS_HEADER]] = dict()
                 if dataframe.header[cf.TIME_BASE_HEADER] not in self.dict_data_x[dataframe.header[cf.DATA_POINTS_HEADER]]:
                     self.dict_data_x[dataframe.header[cf.DATA_POINTS_HEADER]][dataframe.header[cf.TIME_BASE_HEADER]] \
-                        = XYDataFrame.get_data_x(dataframe.header[cf.DATA_POINTS_HEADER], dataframe.header[cf.TIME_BASE_HEADER])
+                        = XYDataFrame.get_data_x(dataframe.header[cf.DATA_POINTS_HEADER],
+                                                 dataframe.header[cf.TIME_BASE_HEADER],
+                                                 dataframe.header[cf.ZERO_INDEX_HEADER])
 
     def graph_init(self) -> None:
         self.legend.clear()

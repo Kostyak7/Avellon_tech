@@ -92,20 +92,22 @@ PIPE_CRACK_POSITION_UNIT = "м"
 
 
 # CSV file data
-CSV_FILE_HEADER_SIZE = 6
+CSV_FILE_HEADER_SIZE = 7
 TIME_BASE_HEADER = "Time Base"
 SAMPLING_RATE_HEADER = "Sampling Rate"
 AMPLITUDE_HEADER = 'Amplitude'
 AMPLITUDE_RESOLUTION_HEADER = 'Amplitude resolution'
 DATA_UINT_HEADER = 'Data Uint'
 DATA_POINTS_HEADER = 'Data points'
+ZERO_INDEX_HEADER = 'Zero index'
 CSV_FILE_HEADER_CONTENT = {
-    "Time Base": FloatFormatting(['Ojs', 'μs', 'ms']),
-    "Sampling Rate": FloatFormatting(['MSa/s']),
-    "Amplitude":  FloatFormatting(['Ojs', 'mV', 'μV', 'V']),
-    "Amplitude resolution": FloatFormatting(['Ojs', 'μV', 'mV', 'V']),
-    "Data Uint": StrFormatting([]),
-    "Data points": IntFormatting([]),
+    TIME_BASE_HEADER: FloatFormatting(['Ojs', 'μs', 'ms']),
+    SAMPLING_RATE_HEADER: FloatFormatting(['MSa/s']),
+    AMPLITUDE_HEADER:  FloatFormatting(['Ojs', 'mV', 'μV', 'V']),
+    AMPLITUDE_RESOLUTION_HEADER: FloatFormatting(['Ojs', 'μV', 'mV', 'V']),
+    DATA_UINT_HEADER: StrFormatting([]),
+    DATA_POINTS_HEADER: IntFormatting([]),
+    ZERO_INDEX_HEADER: IntFormatting([]),
 }
 
 

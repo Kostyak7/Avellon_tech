@@ -47,6 +47,7 @@ class FileConverter:
                 not self.__header_line_convert(old_file, new_file, cf.AMPLITUDE_RESOLUTION_HEADER) or \
                 not self.__header_line_convert(old_file, new_file, cf.DATA_UINT_HEADER) or \
                 not self.__header_line_convert(old_file, new_file, cf.DATA_POINTS_HEADER) or \
+                not self.__header_line_convert(old_file, new_file, cf.ZERO_INDEX_HEADER) or \
                 not self.__data_convert(old_file, new_file):
             new_file.close()
             os.remove(self.new_filename)
@@ -55,7 +56,34 @@ class FileConverter:
         new_file.close()
         return True
 
+    def __zero_index_convert(self, old_file_, new_file_) -> bool:
+        header_line = self.__get_clear_header_line(old_file_.readline(), cf.ZERO_INDEX_HEADER)
+        if header_line is not None:
+            new_file_.write(header_line.replace(',', '.'))
+            return True
+        zero_index = 0
+        prev_value = None
+        prev_ratio = None
+        for line in old_file_:
+            index = line.find(',')
+            if index == -1 or not cf.IS_FLOAT(line[:index + 1]):
+                return False
+            value = float(line[:index + 1])
+            if prev_value is not None and prev_ratio is not None and abs(prev_value / value - prev_ratio) > 5:
+                new_file_.write(cf.ZERO_INDEX_HEADER + ': ' + str(zero_index))
+                old_file_.seek(0)
+                for i in range(cf.CSV_FILE_HEADER_SIZE - 1):
+                    old_file_.readline()
+                return True
+            if prev_value is not None:
+                prev_ratio = prev_value / value
+            prev_value = value
+            zero_index += 1
+        return False
+
     def __header_line_convert(self, old_file_, new_file_, header_name_: str) -> bool:
+        if header_name_ == cf.ZERO_INDEX_HEADER:
+            return self.__zero_index_convert(old_file_, new_file_)
         header_line = self.__get_clear_header_line(old_file_.readline(), header_name_)
         if header_line is not None:
             new_file_.write(header_line.replace(',', '.'))
@@ -78,13 +106,11 @@ class FileConverter:
                     new_line += '\n'
                 new_file_.write(new_line)
                 if self.is_fill_gap:
-
                     accumulate = accumulate[1:] + [float(new_line)]
             elif self.is_fill_gap:
                 ss = 0
                 for i in range(len(accumulate)):
                     ss += accumulate[i]
-                # print(ss, len(accumulate), ss / len(accumulate))
                 new_file_.write("  " + str(ss / len(accumulate)) + "\n")
             else:
                 return False
